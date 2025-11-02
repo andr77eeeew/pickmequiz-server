@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
+    'drf_spectacular',
 
     'users',
 ]
@@ -135,7 +136,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 #SIMPLE JWT
@@ -169,3 +171,14 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+#DRF SCHEMA
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Pick Me Quiz API',
+    'DESCRIPTION': 'Funny quiz project',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'ENUM_ADD_EXPLICIT_BLANK_NULL_CHOICE': True,  # Полезно для форм
+    'COMPONENT_SPLIT_REQUEST': True,  # Разделяет схемы для request/response
+}
