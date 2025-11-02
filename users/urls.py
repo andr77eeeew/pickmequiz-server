@@ -11,6 +11,5 @@ urlpatterns = [
     path('api/token/refresh', TokenRefreshView.as_view(), name='token_refresh'),
 
     path('api/profile', views.UserProfileAPIView.as_view(), name='profile'),
-    path('api/profile/update', views.UserProfileAPIView.as_view(), name='profile_update'),
 
 ]
