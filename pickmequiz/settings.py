@@ -161,7 +161,7 @@ REST_FRAMEWORK = {
 #SIMPLE JWT
 
 SIMPLE_JWT = {
-'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
@@ -181,11 +181,13 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:8080',
     'http://localhost:3000',
+    'http://localhost:5173',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8080',
     'http://localhost:3000',
+    'http://localhost:5173',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
