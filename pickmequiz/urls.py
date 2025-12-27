@@ -14,16 +14,14 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from django.views.static import serve
+
 from django.conf import settings
 
-media_and_static_url = [
-    path("media/<path:path>", serve, kwargs={"document_root": settings.MEDIA_ROOT}),
-    path("static/<path:path>", serve, kwargs={"document_root": settings.STATIC_ROOT}),
-]
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -34,4 +32,5 @@ urlpatterns = [
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]
 
-urlpatterns += media_and_static_url
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
