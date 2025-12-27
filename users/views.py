@@ -15,13 +15,14 @@ class LoginAPIView(APIView):
     authentication_classes = []
 
     @extend_schema(
-        operation_id='login_user',
+       summary = "User Login",
         description='Authenticate user and return access token (refresh in cookie)',
+        tags=['Authentication'],
         request=inline_serializer(
             name='LoginRequest',
             fields={
-                'username': serializers.CharField(required=True, max_length=150),
-                'password': serializers.CharField(required=True, min_length=8, write_only=True),
+                'username': serializers.CharField(),
+                'password': serializers.CharField(style={'input_type': 'password'}),
             }
         ),
         responses={
@@ -31,17 +32,8 @@ class LoginAPIView(APIView):
                     'access': serializers.CharField(),
                 }
             ),
-            400: OpenApiTypes.OBJECT,
             401: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Valid login',
-                value={'username': 'testuser', 'password': 'testpass'},
-                request_only=True
-            )
-        ],
-        tags=['Authentication']
+        }
     )
     def post(self, request):
 
@@ -59,7 +51,8 @@ class LoginAPIView(APIView):
             return Response({'error': 'Invalid username or password'}, status=status.HTTP_401_UNAUTHORIZED)
 
         refresh = RefreshToken.for_user(user)
-        response = Response(status=status.HTTP_200_OK)
+        response = Response({'access': str(refresh.access_token)}, status=status.HTTP_200_OK)
+
         response.set_cookie(
             key='refresh',
             value=str(refresh),
@@ -68,18 +61,16 @@ class LoginAPIView(APIView):
             samesite='Lax',
 
         )
-        response.data = {
-            'access': str(refresh.access_token),
-        }
 
         return response
 
 class RegistrationAPIView(APIView):
 
     @extend_schema(
-        operation_id='register_user',
-        description='Register new user and return access token (refresh in cookie)',
-        request=RegisterSerializer,  # Используем ваш сериализатор: поля из fields в Meta
+        summary="User Registration",
+        description='Register new user',
+        tags=['Authentication'],
+        request=RegisterSerializer,
         responses={
             201: inline_serializer(
                 name='RegistrationResponse',
@@ -88,15 +79,7 @@ class RegistrationAPIView(APIView):
                 }
             ),
             400: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Valid registration',
-                value={'username': 'newuser', 'password': 'strongpass', 'email': 'new@example.com'},
-                request_only=True
-            )
-        ],
-        tags=['Authentication']
+        }
     )
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -105,7 +88,7 @@ class RegistrationAPIView(APIView):
             user = serializer.save()
             refresh = RefreshToken.for_user(user)
 
-            response = Response(status=status.HTTP_201_CREATED)
+            response = Response({'access': str(refresh.access_token)}, status=status.HTTP_201_CREATED)
             response.set_cookie(
                 key='refresh',
                 value=str(refresh),
@@ -114,9 +97,6 @@ class RegistrationAPIView(APIView):
                 samesite='Lax',
 
             )
-            response.data = {
-                'access': str(refresh.access_token),
-            }
 
             return response
 
@@ -125,89 +105,94 @@ class RegistrationAPIView(APIView):
 class LogoutAPIView(APIView):
 
     @extend_schema(
-        operation_id='logout_user',
-        description='Blacklist refresh token from cookie and logout user',
-        request=None,  # Нет body, только cookie
+        summary="Logout User",
+        description="Logout user by blacklisting refresh token",
+        tags=['Authentication'],
+        request=None,
         responses={
             200: inline_serializer(
                 name='LogoutResponse',
                 fields={
-                    'success': serializers.CharField(default='Logout complete'),
+                    'success': serializers.CharField(),
                 }
             ),
             400: OpenApiTypes.OBJECT,
-        },
-        tags=['Authentication']
+        }
     )
     def post(self, request):
         refresh_token = request.COOKIES.get('refresh', None)
 
         if not refresh_token:
-            return Response({'error': 'No refresh token'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'No refresh token found in cookies'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             token = RefreshToken(refresh_token)
             token.blacklist()
-        except Exception as e:
-            return Response({'error': 'Invalid Refresh token'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({'error': 'Invalid or expired refresh token'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({'success': 'Logout complete'}, status=status.HTTP_200_OK)
+        response = Response({'success': 'Logout complete'}, status=status.HTTP_200_OK)
+        response.delete_cookie('refresh')
+        return response
 
 class UserProfileAPIView(APIView):
     permission_classes = (IsAuthenticated,)
 
     @extend_schema(
-        operation_id='get_user_profile',
-        description='Retrieve current user profile',
-        responses={
-            200: UserSerializer,  # Используем ваш сериализатор: только поля из fields
-        },
-        tags=['User Profile']
+        summary="Get User Profile",
+        description="Retrieve the profile of the authenticated user",
+        tags=['User Profile'],
+        responses={200: UserSerializer}
     )
+
     def get(self, request):
-        user = User.objects.get(id=request.user.id)
-        user = UserSerializer(user)
-        return Response(user.data)
+        serializer = UserSerializer(request.user, context={'request': request})
+        return Response(serializer.data)
 
     @extend_schema(
-        operation_id='update_user_profile',
-        description='Update current user profile (partial update allowed)',
+        summary="Update User Profile",
+        description="Update the profile of the authenticated user",
+        tags=['User Profile'],
         request=UserSerializer,
-        responses={
-            200: UserSerializer,
-            400: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Partial update',
-                value={'first_name': 'Updated Name', 'email': 'updated@example.com'},
-                request_only=True
-            )
-        ],
-        tags=['User Profile']
+        responses={200: UserSerializer}
     )
     def put(self, request):
-        user = User.objects.get(id=request.user.id)
-        serializer = UserSerializer(user, data=request.data, partial=True)
+        serializer = UserSerializer(request.user, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CustomTokenRefreshView(TokenRefreshView):
+    """
+    Custom Token Refresh View that reads the refresh token from HttpOnly cookie.
+    """
+    @extend_schema(
+        summary="Refresh Access Token",
+        description="Refresh access token using refresh token from HttpOnly cookie",
+        tags=['Authentication'],
+        request=None,
+        responses={
+            200: inline_serializer(
+                name='TokenRefreshResponse',
+                fields={
+                    'access': serializers.CharField(),
+                }
+            ),
+            401: OpenApiTypes.OBJECT
+        }
+    )
     def post(self, request, *args, **kwargs):
-        # Извлекаем refresh-токен из куков (предполагаем, что ключ куки - 'refresh')
         refresh_token = request.COOKIES.get('refresh')
 
         if not refresh_token:
             return Response({"detail": "Refresh token not found in cookies."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Создаём данные для сериалайзера (имитируем, как будто refresh пришёл в теле)
-        data = {'refresh': refresh_token}
+        serializer = self.get_serializer(data={'refresh': refresh_token})
 
-        # Получаем сериалайзер и валидируем
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            return Response({"detail": "Invalid or expired refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Возвращаем новый access-токен в теле ответа
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
