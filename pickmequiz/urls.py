@@ -28,6 +28,7 @@ media_and_static_url = [
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('users.urls', namespace='users')),
+    path('', include('quiz.urls', namespace='quiz')),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
