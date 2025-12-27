@@ -15,23 +15,38 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Quiz',
+            name="Quiz",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=200)),
-                ('description', models.TextField()),
-                ('is_time_limited', models.BooleanField(default=False)),
-                ('time_limit', models.DurationField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('data', models.JSONField(default=dict)),
-                ('last_modified', models.DateTimeField(auto_now=True)),
-                ('creator', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='quiz_creator', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=200)),
+                ("description", models.TextField()),
+                ("is_time_limited", models.BooleanField(default=False)),
+                ("time_limit", models.DurationField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("data", models.JSONField(default=dict)),
+                ("last_modified", models.DateTimeField(auto_now=True)),
+                (
+                    "creator",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="quiz_creator",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Quiz',
-                'verbose_name_plural': 'Quizzes',
-                'db_table': 'quiz',
-                'ordering': ['-created_at'],
+                "verbose_name": "Quiz",
+                "verbose_name_plural": "Quizzes",
+                "db_table": "quiz",
+                "ordering": ["-created_at"],
             },
         ),
     ]

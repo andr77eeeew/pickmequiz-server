@@ -1,8 +1,11 @@
-from rest_framework import viewsets, status
-from .serializers import QuizSerializer
-from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, OpenApiExample, extend_schema_view
+from django.db.models import QuerySet
+from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework import viewsets
+
+
 from .models import Quiz
+from .serializers import QuizSerializer
+
 
 @extend_schema_view(
     list=extend_schema(
@@ -10,7 +13,7 @@ from .models import Quiz
         description="Retrieve a list of all quizzes.",
         tags=["Quizzes"],
     ),
-    retrive=extend_schema(
+    retrieve=extend_schema(
         summary="Retrieve a Quiz",
         description="Retrieve a Quiz include questions.",
         tags=["Quizzes"],
@@ -39,8 +42,8 @@ from .models import Quiz
 class QuizViewSet(viewsets.ModelViewSet):
     serializer_class = QuizSerializer
 
-    def get_queryset(self):
-        queryset = Quiz.objects.prefetch_related('questions__answer_options').all()
+    def get_queryset(self) -> QuerySet:
+        queryset = Quiz.objects.prefetch_related("questions__answer_options").all()
 
         if self.request.user.is_authenticated:
             return queryset

@@ -8,82 +8,180 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('quiz', '0001_initial'),
+        ("quiz", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='quiz',
-            name='data',
+            model_name="quiz",
+            name="data",
         ),
         migrations.CreateModel(
-            name='Question',
+            name="Question",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=500)),
-                ('answer_type', models.CharField(choices=[('single', 'Single Choice'), ('multiple', 'Multiple Choice')], max_length=50)),
-                ('order', models.IntegerField()),
-                ('question_photo', models.ImageField(blank=True, null=True, upload_to='question_photos/')),
-                ('quiz', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='questions', to='quiz.quiz')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=500)),
+                (
+                    "answer_type",
+                    models.CharField(
+                        choices=[
+                            ("single", "Single Choice"),
+                            ("multiple", "Multiple Choice"),
+                        ],
+                        max_length=50,
+                    ),
+                ),
+                ("order", models.IntegerField()),
+                (
+                    "question_photo",
+                    models.ImageField(
+                        blank=True, null=True, upload_to="question_photos/"
+                    ),
+                ),
+                (
+                    "quiz",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="questions",
+                        to="quiz.quiz",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Question',
-                'verbose_name_plural': 'Questions',
-                'db_table': 'question',
-                'ordering': ['order'],
+                "verbose_name": "Question",
+                "verbose_name_plural": "Questions",
+                "db_table": "question",
+                "ordering": ["order"],
             },
         ),
         migrations.CreateModel(
-            name='AnswerOption',
+            name="AnswerOption",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('text', models.CharField(max_length=300)),
-                ('is_correct', models.BooleanField(default=False)),
-                ('question', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='answer_options', to='quiz.question')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("text", models.CharField(max_length=300)),
+                ("is_correct", models.BooleanField(default=False)),
+                (
+                    "question",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="answer_options",
+                        to="quiz.question",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Answer Option',
-                'verbose_name_plural': 'Answer Options',
-                'db_table': 'answer_option',
+                "verbose_name": "Answer Option",
+                "verbose_name_plural": "Answer Options",
+                "db_table": "answer_option",
             },
         ),
         migrations.CreateModel(
-            name='QuizAttempt',
+            name="QuizAttempt",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('started_at', models.DateTimeField(auto_now_add=True)),
-                ('completed_at', models.DateTimeField(blank=True, null=True)),
-                ('quiz', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='quiz_attempts', to='quiz.quiz')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='quiz_attempts', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("started_at", models.DateTimeField(auto_now_add=True)),
+                ("completed_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "quiz",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="quiz_attempts",
+                        to="quiz.quiz",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="quiz_attempts",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Quiz Attempt',
-                'verbose_name_plural': 'Quiz Attempts',
-                'db_table': 'quiz_attempt',
+                "verbose_name": "Quiz Attempt",
+                "verbose_name_plural": "Quiz Attempts",
+                "db_table": "quiz_attempt",
             },
         ),
         migrations.CreateModel(
-            name='UserAnswer',
+            name="UserAnswer",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('answered_at', models.DateTimeField(auto_now_add=True)),
-                ('attempt', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='user_answers', to='quiz.quizattempt')),
-                ('question', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='user_answers', to='quiz.question')),
-                ('selected_options', models.ManyToManyField(related_name='user_answers', to='quiz.answeroption')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("answered_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "attempt",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="user_answers",
+                        to="quiz.quizattempt",
+                    ),
+                ),
+                (
+                    "question",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="user_answers",
+                        to="quiz.question",
+                    ),
+                ),
+                (
+                    "selected_options",
+                    models.ManyToManyField(
+                        related_name="user_answers", to="quiz.answeroption"
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'User Answer',
-                'verbose_name_plural': 'User Answers',
-                'db_table': 'user_answer',
+                "verbose_name": "User Answer",
+                "verbose_name_plural": "User Answers",
+                "db_table": "user_answer",
             },
         ),
         migrations.AddConstraint(
-            model_name='question',
-            constraint=models.UniqueConstraint(fields=('quiz', 'order'), name='unique_order_per_quiz'),
+            model_name="question",
+            constraint=models.UniqueConstraint(
+                fields=("quiz", "order"), name="unique_order_per_quiz"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='useranswer',
-            constraint=models.UniqueConstraint(fields=('attempt', 'question'), name='unique_answer_per_attempt_question'),
+            model_name="useranswer",
+            constraint=models.UniqueConstraint(
+                fields=("attempt", "question"),
+                name="unique_answer_per_attempt_question",
+            ),
         ),
     ]

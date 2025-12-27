@@ -1,15 +1,19 @@
+from typing import Any, Dict
+
 from django.db import transaction
 from rest_framework import serializers
-from .models import Quiz, AnswerOption, QuestionType, Question
+
+from .models import AnswerOption, Question, QuestionType, Quiz
 
 
 class AnswerOptionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AnswerOption
-        fields = ['id', 'text', 'is_correct']
+        fields = ["id", "text", "is_correct"]
 
-class  QuestionSerializer(serializers.ModelSerializer):
+
+class QuestionSerializer(serializers.ModelSerializer):
 
     answer_options = AnswerOptionSerializer(many=True)
 
@@ -17,12 +21,22 @@ class  QuestionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Question
-        fields = ['id', 'title', 'answer_type', 'order', 'question_photo', 'answer_options']
+        fields = [
+            "id",
+            "title",
+            "answer_type",
+            "order",
+            "question_photo",
+            "answer_options",
+        ]
 
     def validate_answer_options(self, value):
         if not value:
-            raise serializers.ValidationError("Question must have at least one answer option")
+            raise serializers.ValidationError(
+                "Question must have at least one answer option"
+            )
         return value
+
 
 class QuizSerializer(serializers.ModelSerializer):
 
@@ -30,24 +44,29 @@ class QuizSerializer(serializers.ModelSerializer):
 
     creator = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
-
     class Meta:
         model = Quiz
         fields = [
-            'id', 'title', 'description', 'is_time_limited',
-            'time_limit', 'created_at', 'creator', 'questions'
+            "id",
+            "title",
+            "description",
+            "is_time_limited",
+            "time_limit",
+            "created_at",
+            "creator",
+            "questions",
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ["id", "created_at"]
 
-    def create(self, validated_data):
+    def create(self, validated_data: Dict[str, Any]) -> Quiz:
 
-        questions_data = validated_data.pop('questions')
+        questions_data = validated_data.pop("questions")
 
         with transaction.atomic():
             quiz = Quiz.objects.create(**validated_data)
 
             for question_data in questions_data:
-                options_data = question_data.pop('answer_options')
+                options_data = question_data.pop("answer_options")
 
                 question = Question.objects.create(quiz=quiz, **question_data)
 
