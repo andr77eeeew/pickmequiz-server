@@ -3,7 +3,7 @@ from typing import Any, Dict
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import AnswerOption, Question, QuestionType, Quiz
+from .models import AnswerOption, Question, Quiz
 
 
 class AnswerOptionSerializer(serializers.ModelSerializer):
