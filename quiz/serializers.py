@@ -17,15 +17,12 @@ class QuestionSerializer(serializers.ModelSerializer):
 
     answer_options = AnswerOptionSerializer(many=True)
 
-    answer_type = serializers.ChoiceField(choices=QuestionType.choices)
-
     class Meta:
         model = Question
         fields = [
             "id",
             "title",
             "answer_type",
-            "order",
             "question_photo",
             "answer_options",
         ]
@@ -38,7 +35,7 @@ class QuestionSerializer(serializers.ModelSerializer):
         return value
 
 
-class QuizSerializer(serializers.ModelSerializer):
+class QuizDetailSerializer(serializers.ModelSerializer):
 
     questions = QuestionSerializer(many=True)
 
@@ -58,21 +55,41 @@ class QuizSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
+    def validate_questions(self, value):
+        if len(value) > 20 :
+            raise serializers.ValidationError(
+                "Quiz must have no more 20 questions."
+            )
+        return value
+
     def create(self, validated_data: Dict[str, Any]) -> Quiz:
 
         questions_data = validated_data.pop("questions")
 
         with transaction.atomic():
             quiz = Quiz.objects.create(**validated_data)
-
-            for question_data in questions_data:
+            for index, question_data in enumerate(questions_data, start=1):
                 options_data = question_data.pop("answer_options")
-
-                question = Question.objects.create(quiz=quiz, **question_data)
-
+                question = Question.objects.create(quiz=quiz, **question_data, order=index)
                 answer_options_objs = [
                     AnswerOption(question=question, **option_data)
                     for option_data in options_data
                 ]
                 AnswerOption.objects.bulk_create(answer_options_objs)
         return quiz
+
+class QuizListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Quiz
+        fields = [
+            "id",
+            "title",
+            "description",
+            "is_time_limited",
+            "time_limit",
+            "created_at",
+            "creator",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+

@@ -1,10 +1,13 @@
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Model
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import viewsets
-
+from rest_framework.filters import SearchFilter
+from rest_framework.viewsets import ModelViewSet
 
 from .models import Quiz
-from .serializers import QuizSerializer
+from .permissions import IsCreator
+from .serializers import QuizListSerializer, QuizDetailSerializer
 
 
 @extend_schema_view(
@@ -40,11 +43,28 @@ from .serializers import QuizSerializer
     ),
 )
 class QuizViewSet(viewsets.ModelViewSet):
-    serializer_class = QuizSerializer
+    serializer_class = QuizListSerializer
+    detail_serializer_class = QuizDetailSerializer
+    permission_classes = [IsCreator]
+
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ["category"]
+    search_fields = ["title", "description"]
+
+    def get_serializer_class(self):
+        if self.action != "list":
+            if hasattr(self, "detail_serializer_class"):
+                return self.detail_serializer_class
+
+        return super().get_serializer_class()
 
     def get_queryset(self) -> QuerySet:
-        queryset = Quiz.objects.prefetch_related("questions__answer_options").all()
+        queryset = Quiz.objects.all()
 
         if self.request.user.is_authenticated:
+            if self.action == "list":
+                queryset = Quiz.objects.all().select_related("creator")
+                return queryset
+            queryset = Quiz.objects.prefetch_related("questions__answer_options").all()
             return queryset
         return queryset.none()
