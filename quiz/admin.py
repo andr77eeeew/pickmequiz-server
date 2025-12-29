@@ -14,8 +14,8 @@ class QuestionInline(admin.TabularInline):
 
 @admin.register(Quiz)
 class QuizAdmin(admin.ModelAdmin):
-    list_display = ('title', 'creator', 'created_at', 'is_time_limited')
-    list_filter = ('is_time_limited', 'created_at')
+    list_display = ('title', 'category', 'creator', 'created_at', 'is_time_limited')
+    list_filter = ('is_time_limited', 'category', 'created_at')
     search_fields = ('title', 'description')
     inlines = [QuestionInline]
 
