@@ -6,9 +6,20 @@ from users.models import User
 # Create your models here.
 
 
+class QuizCategory(models.TextChoices):
+    GENERAL = "general", "General Knowledge"
+    SCIENCE = "science", "Science"
+    HISTORY = "history", "History"
+    LITERATURE = "literature", "Literature"
+    MATH = "math", "Mathematics"
+    SPORTS = "sports", "Sports"
+    ENTERTAINMENT = "entertainment", "Entertainment"
+
+
 class Quiz(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
+    category = models.CharField(max_length=100, choices = QuizCategory.choices, default=QuizCategory.GENERAL)
     is_time_limited = models.BooleanField(default=False)
     time_limit = models.DurationField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -44,7 +55,7 @@ class Question(models.Model):
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name="questions")
     title = models.CharField(max_length=500)
     answer_type = models.CharField(
-        max_length=50, choices=QuestionType.choices
+        max_length=50, choices=QuestionType.choices, default=QuestionType.SINGLE
     )  # e.g., 'single', 'multiple's
     order = models.IntegerField()
     question_photo = models.ImageField(
