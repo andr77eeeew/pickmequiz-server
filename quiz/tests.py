@@ -1,0 +1,117 @@
+from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APITestCase
+from django.contrib.auth import get_user_model
+from quiz.models import Quiz
+from rest_framework_simplejwt.tokens import RefreshToken
+
+User = get_user_model()
+
+class QuizCRUDTests(APITestCase):
+    def setUp(self):
+
+        self.author = User.objects.create_user(username='author', password='password')
+        self.other_user = User.objects.create_user(username='other', password='password')
+
+        self.url_list = reverse('quiz:quiz-list')
+
+        self.quiz_data = {
+            "title": "Test Quiz",
+            "description": "Description",
+            "is_time_limited": False,
+            "questions": [
+                {
+                    "title": "Question 1",
+                    "answer_options": [
+                        {"text": "Option 1", "is_correct": True},
+                        {"text": "Option 2", "is_correct": False}
+                    ]
+                }
+            ]
+        }
+
+    def authenticate_user(self, user):
+        refresh = RefreshToken.for_user(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+
+    def test_create_quiz_authenticated(self):
+
+        self.authenticate_user(self.author)
+
+        response = self.client.post(self.url_list, self.quiz_data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Quiz.objects.count(), 1)
+        self.assertEqual(Quiz.objects.get().creator, self.author)
+
+    def test_create_quiz_unauthenticated(self):
+
+        self.client.logout()
+
+        self.client.credentials()
+
+        response = self.client.post(self.url_list, self.quiz_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_update_quiz_permission(self):
+
+        quiz = Quiz.objects.create(title="Old Title", creator=self.author, description="Desc")
+        url = reverse('quiz:quiz-detail', kwargs={'pk': quiz.pk})
+
+        self.authenticate_user(self.other_user)
+        response = self.client.patch(url, {'title': 'Hacked Title'})
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.logout()
+        self.client.credentials()
+        self.authenticate_user(self.author)
+        response = self.client.patch(url, {'title': 'New Title'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        quiz.refresh_from_db()
+        self.assertEqual(quiz.title, 'New Title')
+
+    def test_delete_quiz_permission(self):
+
+        quiz = Quiz.objects.create(title="To Delete", creator=self.author, description="Desc")
+        url = reverse('quiz:quiz-detail', kwargs={'pk': quiz.pk})
+
+        self.authenticate_user(self.other_user)
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Quiz.objects.count(), 1)
+
+        self.client.logout()
+        self.client.credentials()
+        self.authenticate_user(self.author)
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Quiz.objects.count(), 0)
+
+    def test_list_optimization(self):
+        Quiz.objects.create(title="Q1", creator=self.author, description="Desc")
+
+        self.authenticate_user(self.author)
+        response = self.client.get(self.url_list)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn('questions', response.data['results'][0])
+
+    def test_validation_question_limit(self):
+        self.authenticate_user(self.author)
+
+        many_questions = []
+        for i in range(21):
+            many_questions.append({
+                'title': f"Q {i}",
+                "answer_options": [{"text": "A", "is_correct": True}]
+            })
+
+        data = self.quiz_data.copy()
+        data['questions'] = many_questions
+
+        response = self.client.post(self.url_list, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.assertIn("questions", response.data)
