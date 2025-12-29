@@ -17,10 +17,10 @@ class QuizAttemptInline(admin.TabularInline):
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
     fieldsets = UserAdmin.fieldsets + (
-    ('Extra Fields', {'fields': ('avatar',)}),
+    ('Extra Fields', {'fields': ('avatar', "about", 'favourite_tests')}),
     )
     add_fieldsets = UserAdmin.add_fieldsets + (
-    ('Extra Fields', {'fields': ('avatar',)}),
+    ('Extra Fields', {'fields': ('avatar', "about", 'favourite_tests')}),
     )
 
     inlines = [QuizAttemptInline]
