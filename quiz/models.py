@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.conf import settings
 
-from users.models import User
 
 # Create your models here.
 
@@ -24,7 +24,7 @@ class Quiz(models.Model):
     time_limit = models.DurationField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     creator = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="quiz_creator"
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="quiz_creator"
     )
     last_modified = models.DateTimeField(auto_now=True)
 
@@ -96,7 +96,7 @@ class AnswerOption(models.Model):
 
 class QuizAttempt(models.Model):
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="quiz_attempts"
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="quiz_attempts"
     )
     quiz = models.ForeignKey(
         Quiz, on_delete=models.CASCADE, related_name="quiz_attempts"
