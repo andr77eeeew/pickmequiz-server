@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.db.models import Count
+
 from .models import User
 from quiz.models import QuizAttempt
 
@@ -26,6 +28,10 @@ class CustomUserAdmin(UserAdmin):
     inlines = [QuizAttemptInline]
     list_display = UserAdmin.list_display + ('quiz_attempts_count',)
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.annotate(attempts_count=Count('quiz_attempts'))
+
     def quiz_attempts_count(self, obj):
-        return obj.quiz_attempts.count()
+        return obj.attempts_count
     quiz_attempts_count.short_description = 'Quiz Attempts Count'
