@@ -28,6 +28,8 @@ class Quiz(models.Model):
     )
     last_modified = models.DateTimeField(auto_now=True)
 
+    MAX_SCORE = 100
+
     class Meta:
         db_table = "quiz"
         ordering = ["-created_at"]
@@ -37,9 +39,19 @@ class Quiz(models.Model):
     def __str__(self):
         return self.title
 
+    def get_question_score(self):
+        """Возвращает "цену" одного вопроса в этом тесте"""
+        question_count = self.questions.count()
+        if question_count == 0:
+            return 0
+        return self.MAX_SCORE / question_count
+
     def clean(self):
-        if self.is_time_limited and not self.time_limit:
-            raise ValidationError("Time limit is required if is_time_limited is True.")
+        if self.is_time_limited:
+            if not self.time_limit:
+                raise ValidationError("Time limit is required if is_time_limited is True.")
+            if self.time_limit. total_seconds() <= 0:
+                raise ValidationError("Time limit must be positive.")
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -101,6 +113,7 @@ class QuizAttempt(models.Model):
     quiz = models.ForeignKey(
         Quiz, on_delete=models.CASCADE, related_name="quiz_attempts"
     )
+    score = models.FloatField(default=0.0,)
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
