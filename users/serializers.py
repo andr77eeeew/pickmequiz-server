@@ -1,11 +1,15 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from quiz.models import Quiz
 User = get_user_model()
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    password = serializers.CharField(write_only=True,
+                                     required=True,
+                                     validators=[validate_password],
+                                     style={"input_type": "password"})
 
     class Meta:
         model = User
@@ -15,6 +19,11 @@ class RegisterSerializer(serializers.ModelSerializer):
             "password",
         )
 
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with that email already exists.")
+        return value
+
     def create(self, validated_data):
         user = User(
             username=validated_data["username"],
@@ -23,6 +32,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.set_password(validated_data["password"])
         user.save()
         return user
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField(required=True)
+    password = serializers.CharField(required=True, write_only=True)
 
 
 class FavouriteSerializer(serializers.ModelSerializer):
@@ -40,6 +53,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("id", "username", "email", "first_name", "last_name", "avatar", "about", "favourite_tests", "passed_tests_count")
+        read_only_fields = ("id", "username", "email", "passed_tests_count")
 
     def get_avatar(self, obj):
         request = self.context.get("request")

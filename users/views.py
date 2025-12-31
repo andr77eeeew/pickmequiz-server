@@ -1,4 +1,5 @@
-from django.contrib.auth import authenticate
+from django.conf import settings
+from django.contrib.auth import authenticate, get_user_model
 from drf_spectacular.utils import OpenApiTypes, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
@@ -9,11 +10,14 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from users.serializers import RegisterSerializer, UserSerializer
+from users.serializers import RegisterSerializer, UserSerializer, LoginSerializer
+from users.throttling import LoginRateThrottle
 
+User = get_user_model()
 
 class LoginAPIView(APIView):
     authentication_classes = []
+    throttle_classes = [LoginRateThrottle]
 
     @extend_schema(
         summary="User Login",
@@ -38,14 +42,11 @@ class LoginAPIView(APIView):
     )
     def post(self, request: Request) -> Response:
 
-        data = request.data
-        username = data.get("username")
-        password = data.get("password")
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if username is None or password is None:
-            return Response(
-                {"error": "No login or password"}, status=status.HTTP_400_BAD_REQUEST
-            )
+        username = serializer.validated_data["username"]
+        password = serializer.validated_data["password"]
 
         user = authenticate(username=username, password=password)
 
@@ -64,7 +65,7 @@ class LoginAPIView(APIView):
             key="refresh",
             value=str(refresh),
             httponly=True,
-            secure=True,
+            secure=not settings.DEBUG,
             samesite="Lax",
         )
 
@@ -102,7 +103,7 @@ class RegistrationAPIView(APIView):
                 key="refresh",
                 value=str(refresh),
                 httponly=True,
-                secure=True,
+                secure=not settings.DEBUG,
                 samesite="Lax",
             )
 
@@ -161,7 +162,8 @@ class UserProfileAPIView(APIView):
         responses={200: UserSerializer},
     )
     def get(self, request: Request) -> Response:
-        serializer = UserSerializer(request.user, context={"request": request})
+        user = User.objects.prefetch_related("favourite_tests", "quiz_attempts").get(user=request.user)
+        serializer = UserSerializer(user, context={"request": request})
         return Response(serializer.data)
 
     @extend_schema(
