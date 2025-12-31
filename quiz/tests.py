@@ -13,9 +13,17 @@ User = get_user_model()
 
 class QuizCRUDTests(APITestCase):
     def setUp(self):
-
-        self.author = User.objects.create_user(username='author', password='password')
-        self.other_user = User.objects.create_user(username='other', password='password')
+        # ИСПРАВЛЕНИЕ ЗДЕСЬ: Добавляем уникальные email для каждого юзера
+        self.author = User.objects.create_user(
+            username='author',
+            email='author@test.com',
+            password='password'
+        )
+        self.other_user = User.objects.create_user(
+            username='other',
+            email='other@test.com',
+            password='password'
+        )
 
         self.url_list = reverse('quiz:quiz-list')
 
@@ -39,26 +47,19 @@ class QuizCRUDTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
 
     def test_create_quiz_authenticated(self):
-
         self.authenticate_user(self.author)
-
         response = self.client.post(self.url_list, self.quiz_data, format='json')
-
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Quiz.objects.count(), 1)
         self.assertEqual(Quiz.objects.get().creator, self.author)
 
     def test_create_quiz_unauthenticated(self):
-
         self.client.logout()
-
         self.client.credentials()
-
         response = self.client.post(self.url_list, self.quiz_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_update_quiz_permission(self):
-
         quiz = Quiz.objects.create(title="Old Title", creator=self.author, description="Desc")
         url = reverse('quiz:quiz-detail', kwargs={'pk': quiz.pk})
 
@@ -66,8 +67,6 @@ class QuizCRUDTests(APITestCase):
         response = self.client.patch(url, {'title': 'Hacked Title'})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-        self.client.logout()
-        self.client.credentials()
         self.authenticate_user(self.author)
         response = self.client.patch(url, {'title': 'New Title'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -76,7 +75,6 @@ class QuizCRUDTests(APITestCase):
         self.assertEqual(quiz.title, 'New Title')
 
     def test_delete_quiz_permission(self):
-
         quiz = Quiz.objects.create(title="To Delete", creator=self.author, description="Desc")
         url = reverse('quiz:quiz-detail', kwargs={'pk': quiz.pk})
 
@@ -85,8 +83,6 @@ class QuizCRUDTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(Quiz.objects.count(), 1)
 
-        self.client.logout()
-        self.client.credentials()
         self.authenticate_user(self.author)
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
