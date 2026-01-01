@@ -119,11 +119,13 @@ class QuizCRUDTests(APITestCase):
 
     def test_start_attempt_quiz(self):
         self.authenticate_user(self.author)
-        self.client.post(self.url_list, self.quiz_data, format="json")
+        create_response = self.client.post(self.url_list, self.quiz_data, format="json")
+
+        quiz_id = create_response.data['id']
 
         url = reverse("quiz:quiz-attempt-list")
 
-        quiz_attempt = {"quiz": 1}
+        quiz_attempt = {"quiz": quiz_id}
 
         response = self.client.post(url, quiz_attempt, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -133,13 +135,16 @@ class QuizCRUDTests(APITestCase):
 
         response_create = self.client.post(self.url_list, self.quiz_data, format="json")
 
-        QuizAttempt.objects.create(quiz=Quiz.objects.get(pk=1), user=self.author)
+        quiz_id = response_create.data['id']
 
-        quiz = Quiz.objects.get(pk=response_create.data["id"])
+        quiz = Quiz.objects.get(pk=quiz_id)
+
+        attempt = QuizAttempt.objects.create(quiz=quiz, user=self.author)
+
         question = quiz.questions.first()
         option = question.answer_options.first()
 
-        url = reverse("quiz:quiz-attempt-detail", kwargs={"pk": 1}) + "submit/"
+        url = reverse("quiz:quiz-attempt-detail", kwargs={"pk": attempt.pk}) + "submit/"
 
         quiz_data = {
             "answers": [{"question_id": question.id, "selected_options": [option.id]}]
@@ -148,18 +153,23 @@ class QuizCRUDTests(APITestCase):
         response = self.client.patch(url, quiz_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        self.assertIsNot(response.data["completed_at"], None)
+        self.assertIsNotNone(response.data["completed_at"])
 
     def test_submit_attempt_invalid_question_id(self):
         self.authenticate_user(self.author)
 
-        self.client.post(self.url_list, self.quiz_data, format="json")
+        response_create = self.client.post(self.url_list, self.quiz_data, format="json")
 
-        QuizAttempt.objects.create(quiz=Quiz.objects.get(pk=1), user=self.author)
+        quiz_id = response_create.data["id"]
 
-        url = reverse("quiz:quiz-attempt-detail", kwargs={"pk": 1}) + "submit/"
+        quiz = Quiz.objects.get(pk=quiz_id)
 
-        quiz_data = {"answers": [{"question_id": 2, "selected_options": [1]}]}
+        attempt = QuizAttempt.objects.create(quiz=quiz, user=self.author)
+
+        url = reverse("quiz:quiz-attempt-detail", kwargs={"pk": attempt.pk}) + "submit/"
+
+        invalid_q_id = quiz.questions.first().id + 999
+        quiz_data = {"answers": [{"question_id": invalid_q_id, "selected_options": [1]}]}
 
         response = self.client.patch(url, quiz_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
