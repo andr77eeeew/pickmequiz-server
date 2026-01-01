@@ -69,10 +69,13 @@ jobs:
         coverage xml
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
+      continue-on-error: true
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
         file: ./coverage.xml
         fail_ci_if_error: false
+        verbose: true
 
     - name: Check migrations
       env:
