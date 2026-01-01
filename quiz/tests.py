@@ -121,7 +121,7 @@ class QuizCRUDTests(APITestCase):
         self.authenticate_user(self.author)
         create_response = self.client.post(self.url_list, self.quiz_data, format="json")
 
-        quiz_id = create_response.data['id']
+        quiz_id = create_response.data["id"]
 
         url = reverse("quiz:quiz-attempt-list")
 
@@ -135,7 +135,7 @@ class QuizCRUDTests(APITestCase):
 
         response_create = self.client.post(self.url_list, self.quiz_data, format="json")
 
-        quiz_id = response_create.data['id']
+        quiz_id = response_create.data["id"]
 
         quiz = Quiz.objects.get(pk=quiz_id)
 
@@ -169,7 +169,9 @@ class QuizCRUDTests(APITestCase):
         url = reverse("quiz:quiz-attempt-detail", kwargs={"pk": attempt.pk}) + "submit/"
 
         invalid_q_id = quiz.questions.first().id + 999
-        quiz_data = {"answers": [{"question_id": invalid_q_id, "selected_options": [1]}]}
+        quiz_data = {
+            "answers": [{"question_id": invalid_q_id, "selected_options": [1]}]
+        }
 
         response = self.client.patch(url, quiz_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
