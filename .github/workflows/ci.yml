@@ -57,7 +57,12 @@ jobs:
         SECRET_KEY_PROJ: test-secret-key-for-ci-${{ github.sha }}
         DEBUG: False
         ALLOWED_HOSTS:  localhost,127.0.0.1
-        DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
+
+        POSTGRES_DB: test_db
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
       run: |
         coverage run --source='.' manage.py test
         coverage report
@@ -74,5 +79,11 @@ jobs:
         SECRET_KEY_PROJ: test-secret-key
         DEBUG: True
         ALLOWED_HOSTS:  localhost
+
+        POSTGRES_DB: test_db
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
       run: |
         python manage.py makemigrations --check --dry-run --no-input
