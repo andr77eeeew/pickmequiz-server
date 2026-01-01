@@ -64,14 +64,12 @@ class QuizViewSet(viewsets.ModelViewSet):
         return super().get_serializer_class()
 
     def get_queryset(self) -> QuerySet:
-        queryset = Quiz.objects.all()
-
         if self.action == "list":
-            queryset = Quiz.objects.all().select_related("creator")
-        elif self.action == ["retrieve", "update", "partial_update"]:
-            queryset = Quiz.objects.prefetch_related("questions__answer_options")
+            return Quiz.objects.all().select_related("creator")
+        elif self.action in ["retrieve", "update", "partial_update", "destroy"]:
+            return Quiz.objects.prefetch_related("questions__answer_options")
 
-        return queryset
+        return Quiz.objects.all()
 
 class QuizAttemptViewSet(viewsets.ModelViewSet):
 

@@ -31,22 +31,36 @@ class QuestionSerializer(serializers.ModelSerializer):
         ]
 
     def validate_answer_options(self, value):
-        if not value:
-            raise serializers.ValidationError(
-                "Question must have at least one answer option"
-            )
         if len(value) < 2:
             raise serializers.ValidationError(
-                "Question must have at least two answer options"
+                "Question must have at least 2 answer options"
             )
-        correct_options = [option for option in value if option.get("is_correct")]
-        if not correct_options:
+        if len(value) > 10:
             raise serializers.ValidationError(
-                "Question must have at least one correct answer option"
+                "Question must have no more than 10 answer options"
             )
-
+        correct_answer = [opt for opt in value if opt.get("is_correct")]
+        if not correct_answer:
+            raise serializers.ValidationError(
+                "At least one answer option must be marked as correct."
+            )
         return value
 
+    def validate(self, data):
+        answer_type = data.get("answer_type")
+        answer_options = data.get("answer_options", [])
+
+        correct_count = sum(1 for opt in answer_options if opt.get('is_correct'))
+
+        if answer_type == 'single' and correct_count != 1:
+            raise serializers.ValidationError(
+                "For 'single' answer type, there must be exactly one correct answer option."
+            )
+        if answer_type == 'multiple' and correct_count < 2:
+            raise serializers.ValidationError(
+                "For 'multiple' answer type, there must be at least two correct answer options."
+            )
+        return data
 
 class QuizDetailSerializer(serializers.ModelSerializer):
 
@@ -60,6 +74,7 @@ class QuizDetailSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "description",
+            "category",
             "is_time_limited",
             "time_limit",
             "created_at",
@@ -67,6 +82,13 @@ class QuizDetailSerializer(serializers.ModelSerializer):
             "questions",
         ]
         read_only_fields = ["id", "created_at"]
+
+    def validate(self, data):
+        if data.get('is_time_limited') and not data.get('time_limit'):
+            raise serializers.ValidationError({
+                'time_limit': 'Time limit is required when quiz is time limited'
+            })
+        return data
 
     def validate_questions(self, value):
         if not value:
@@ -149,6 +171,7 @@ class QuizListSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "description",
+            "category",
             "is_time_limited",
             "time_limit",
             "created_at",
@@ -177,6 +200,20 @@ class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
         model = QuizAttempt
         fields = ['answers', 'completed_at']
         read_only_fields = ['completed_at']
+
+    def validate_selected_options(self, value, selected_option):
+        if value.answer_type == 'single' and len(selected_option)  != 1:
+            raise ValidationError("Single answer question must have exactly one selected option.")
+
+        if not selected_option:
+            raise ValidationError("At least one answer option must be selected.")
+
+        valid_options = set(value.answer_options.value_list('id', flat=True))
+        selected_ids = set(opt.id for opt in selected_option)
+
+        if not selected_ids.issubset(valid_options):
+            raise ValidationError("One or more selected options are invalid for the question.")
+        return value
 
     def validate_answers(self, values):
         valid_questions_ids = set(self.instance.quiz.questions.values_list('id', flat=True))
