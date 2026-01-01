@@ -1,6 +1,7 @@
 from django.utils import timezone
 
 from django.urls import reverse
+from django.utils.http import urlencode
 from rest_framework import status
 from rest_framework.test import APITestCase
 from django.contrib.auth import get_user_model
@@ -226,6 +227,9 @@ class QuizCRUDTests(APITestCase):
         response = self.client.get(url, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data['results']
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['title'], 'Python Basics')
 
         url = f"{self.url_list}?search=Django"
         response = self.client.get(url, format='json')
@@ -256,7 +260,7 @@ class QuizCRUDTests(APITestCase):
             url = f"{self.url_list}?category={category}"
             response = self.client.get(url, format='json')
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         results = response.data['results']
 
@@ -300,7 +304,8 @@ class QuizCRUDTests(APITestCase):
         quiz2['category'] = 'history'
         self.client.post(self.url_list, quiz2, format='json')
 
-        url = f"{self.url_list}?category=science&search=Python"
+        params = {'category': 'science', 'search': 'Python'}
+        url = f"{self.url_list}?{urlencode(params)}"
         response = self.client.get(url, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
