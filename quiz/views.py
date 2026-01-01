@@ -1,4 +1,3 @@
-from django.core.serializers import get_serializer
 from django.db.models import QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -8,13 +7,14 @@ from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.request import Request
 from rest_framework.response import Response
+import logging
 
 from .models import Quiz, QuizAttempt
 from .permissions import IsCreator
 from .serializers import QuizListSerializer, QuizDetailSerializer, QuizAttemptStartSerializer, \
     QuizAttemptSubmitSerializer
 
-
+logger = logging.getLogger(__name__)
 @extend_schema_view(
     list=extend_schema(
         summary="List Quiz",
@@ -57,6 +57,7 @@ class QuizViewSet(viewsets.ModelViewSet):
     search_fields = ["title", "description"]
 
     def get_serializer_class(self):
+        logger.info(f"Getting serializer class for action: {self.action}")
         if self.action != "list":
             if hasattr(self, "detail_serializer_class"):
                 return self.detail_serializer_class
@@ -64,6 +65,7 @@ class QuizViewSet(viewsets.ModelViewSet):
         return super().get_serializer_class()
 
     def get_queryset(self) -> QuerySet:
+        logger.info(f"Getting queryset for action: {self.action}")
         if self.action == "list":
             return Quiz.objects.all().select_related("creator")
         elif self.action in ["retrieve", "update", "partial_update", "destroy"]:
@@ -107,13 +109,14 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["patch"])
     def submit(self, request: Request, pk=None) -> Response:
         attempt = self.get_object()
-
+        logger.info(f"Attempt ID: {attempt.id}")
         if attempt.completed_at is not None:
+            logger.warning(f"Attempt ID: {attempt.id} already completed")
             return Response(
                 {"detail": "This attempt has already been completed."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
+        logger.info(f"Attempt ID: {attempt.id}")
         serializer = self.get_serializer(attempt, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()

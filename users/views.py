@@ -12,9 +12,10 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from users.serializers import RegisterSerializer, UserSerializer, LoginSerializer
 from users.throttling import LoginRateThrottle
-
+import logging
 User = get_user_model()
 
+logger = logging.getLogger(__name__)
 class LoginAPIView(APIView):
     authentication_classes = []
     throttle_classes = [LoginRateThrottle]
@@ -48,13 +49,18 @@ class LoginAPIView(APIView):
         username = serializer.validated_data["username"]
         password = serializer.validated_data["password"]
 
+        logger.info(f"Login attempt for user: {username}")
+
         user = authenticate(username=username, password=password)
 
         if user is None:
+            logger.warning(f"Failed login attempt for user: {username}")
             return Response(
                 {"error": "Invalid username or password"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+
+        logger.info(f"Successful login for user: {username}")
 
         refresh = RefreshToken.for_user(user)
         response = Response(
@@ -91,10 +97,12 @@ class RegistrationAPIView(APIView):
     )
     def post(self, request: Request) -> Response:
         serializer = RegisterSerializer(data=request.data)
-
+        logger.info(f"Registration attempt with data: {request.data}")
         if serializer.is_valid():
             user = serializer.save()
             refresh = RefreshToken.for_user(user)
+
+            logger.info(f"Successful registration for user: {user}")
 
             response = Response(
                 {"access": str(refresh.access_token)}, status=status.HTTP_201_CREATED
@@ -108,7 +116,7 @@ class RegistrationAPIView(APIView):
             )
 
             return response
-
+        logger.warning(f"Failed registration attempt with errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -131,22 +139,25 @@ class LogoutAPIView(APIView):
     )
     def post(self, request: Request) -> Response:
         refresh_token = request.COOKIES.get("refresh", None)
-
+        logger.info(f"Logout attempt with refresh token: {refresh_token}")
         if not refresh_token:
+            logger.warning(f"Failed logout attempt with refresh token: {refresh_token}")
             return Response(
                 {"error": "No refresh token found in cookies"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
+            logger.info(f"Blacklisting refresh token: {refresh_token}")
             token = RefreshToken(refresh_token)
             token.blacklist()
         except TokenError:
+            logger.warning(f"Failed to blacklist refresh token: {refresh_token}")
             return Response(
                 {"error": "Invalid or expired refresh token"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
+        logger.info(f"Successful logout for refresh token: {refresh_token}")
         response = Response({"success": "Logout complete"}, status=status.HTTP_200_OK)
         response.delete_cookie("refresh")
         return response
@@ -164,6 +175,7 @@ class UserProfileAPIView(APIView):
     def get(self, request: Request) -> Response:
         user = User.objects.prefetch_related("favourite_tests", "quiz_attempts").get(user=request.user)
         serializer = UserSerializer(user, context={"request": request})
+        logger.info(f"Retrieved profile for user: {request.user}")
         return Response(serializer.data)
 
     @extend_schema(
@@ -178,8 +190,10 @@ class UserProfileAPIView(APIView):
             request.user, data=request.data, partial=True, context={"request": request}
         )
         if serializer.is_valid():
+            logger.info(f"Updating profile for user: {request.user} with data: {request.data}")
             serializer.save()
             return Response(serializer.data)
+        logger.warning(f"Failed to update profile for user: {request.user} with errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -205,8 +219,9 @@ class CustomTokenRefreshView(TokenRefreshView):
     )
     def post(self, request: Request, *args, **kwargs) -> Response:
         refresh_token = request.COOKIES.get("refresh")
-
+        logger.info(f"Token refresh attempt with refresh token: {refresh_token}")
         if not refresh_token:
+            logger.warning(f"Failed token refresh attempt with refresh token: {refresh_token}")
             return Response(
                 {"detail": "Refresh token not found in cookies."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -215,11 +230,13 @@ class CustomTokenRefreshView(TokenRefreshView):
         serializer = self.get_serializer(data={"refresh": refresh_token})
 
         try:
+            logger.info(f"Refreshing access token with refresh token: {refresh_token}")
             serializer.is_valid(raise_exception=True)
         except TokenError:
+            logger.warning(f"Failed to refresh access token with refresh token: {refresh_token}")
             return Response(
                 {"detail": "Invalid or expired refresh token."},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-
+        logger.info(f"Successful token refresh with refresh token: {refresh_token}")
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
