@@ -343,7 +343,7 @@ pip-delete-this-directory.txt
 htmlcov/
 .tox/
 .nox/
-.coverage
+.coveragerc
 .coverage.*
 .cache
 nosetests.xml
@@ -548,3 +548,13 @@ fabric.properties
 /.idea/misc.xml
 /.idea/.gitignore
 /static/
+
+
+# logging
+logs/
+*.log
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml!/.coverage
