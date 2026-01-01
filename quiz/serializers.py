@@ -1,11 +1,10 @@
-from django.utils import timezone
 from typing import Any, Dict
 
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from quiz.models import QuizAttempt, Quiz
 from .models import AnswerOption, Question, Quiz, QuizAttempt, UserAnswer
 
 
@@ -50,17 +49,18 @@ class QuestionSerializer(serializers.ModelSerializer):
         answer_type = data.get("answer_type")
         answer_options = data.get("answer_options", [])
 
-        correct_count = sum(1 for opt in answer_options if opt.get('is_correct'))
+        correct_count = sum(1 for opt in answer_options if opt.get("is_correct"))
 
-        if answer_type == 'single' and correct_count != 1:
+        if answer_type == "single" and correct_count != 1:
             raise serializers.ValidationError(
                 "For 'single' answer type, there must be exactly one correct answer option."
             )
-        if answer_type == 'multiple' and correct_count < 2:
+        if answer_type == "multiple" and correct_count < 2:
             raise serializers.ValidationError(
                 "For 'multiple' answer type, there must be at least two correct answer options."
             )
         return data
+
 
 class QuizDetailSerializer(serializers.ModelSerializer):
 
@@ -84,21 +84,17 @@ class QuizDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
     def validate(self, data):
-        if data.get('is_time_limited') and not data.get('time_limit'):
-            raise serializers.ValidationError({
-                'time_limit': 'Time limit is required when quiz is time limited'
-            })
+        if data.get("is_time_limited") and not data.get("time_limit"):
+            raise serializers.ValidationError(
+                {"time_limit": "Time limit is required when quiz is time limited"}
+            )
         return data
 
     def validate_questions(self, value):
         if not value:
-            raise serializers.ValidationError(
-                "Quiz must have at least one question."
-            )
-        if len(value) > 20 :
-            raise serializers.ValidationError(
-                "Quiz must have no more 20 questions."
-            )
+            raise serializers.ValidationError("Quiz must have at least one question.")
+        if len(value) > 20:
+            raise serializers.ValidationError("Quiz must have no more 20 questions.")
         return value
 
     def create(self, validated_data: Dict[str, Any]) -> Quiz:
@@ -109,7 +105,9 @@ class QuizDetailSerializer(serializers.ModelSerializer):
             quiz = Quiz.objects.create(**validated_data)
             for index, question_data in enumerate(questions_data, start=1):
                 options_data = question_data.pop("answer_options")
-                question = Question.objects.create(quiz=quiz, **question_data, order=index)
+                question = Question.objects.create(
+                    quiz=quiz, **question_data, order=index
+                )
                 answer_options_objs = [
                     AnswerOption(question=question, **option_data)
                     for option_data in options_data
@@ -158,11 +156,11 @@ class QuizDetailSerializer(serializers.ModelSerializer):
 
                 question.answer_options.all().delete()
                 new_options = [
-                    AnswerOption(question=question, **opt)
-                    for opt in options_data
+                    AnswerOption(question=question, **opt) for opt in options_data
                 ]
                 AnswerOption.objects.bulk_create(new_options)
         return instance
+
 
 class QuizListSerializer(serializers.ModelSerializer):
     class Meta:
@@ -186,6 +184,7 @@ class UserAnswerInputSerializer(serializers.Serializer):
         child=serializers.IntegerField(), allow_empty=False
     )
 
+
 class QuizAttemptStartSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -193,50 +192,57 @@ class QuizAttemptStartSerializer(serializers.ModelSerializer):
         fields = ["id", "quiz", "user", "started_at"]
         read_only_fields = ["id", "user", "started_at"]
 
+
 class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
     answers = UserAnswerInputSerializer(many=True, write_only=True)
 
     class Meta:
         model = QuizAttempt
-        fields = ['answers', 'completed_at']
-        read_only_fields = ['completed_at']
+        fields = ["answers", "completed_at"]
+        read_only_fields = ["completed_at"]
 
     def validate_selected_options(self, value, selected_option):
-        if value.answer_type == 'single' and len(selected_option)  != 1:
-            raise ValidationError("Single answer question must have exactly one selected option.")
+        if value.answer_type == "single" and len(selected_option) != 1:
+            raise ValidationError(
+                "Single answer question must have exactly one selected option."
+            )
 
         if not selected_option:
             raise ValidationError("At least one answer option must be selected.")
 
-        valid_options = set(value.answer_options.value_list('id', flat=True))
+        valid_options = set(value.answer_options.value_list("id", flat=True))
         selected_ids = set(opt.id for opt in selected_option)
 
         if not selected_ids.issubset(valid_options):
-            raise ValidationError("One or more selected options are invalid for the question.")
+            raise ValidationError(
+                "One or more selected options are invalid for the question."
+            )
         return value
 
     def validate_answers(self, values):
-        valid_questions_ids = set(self.instance.quiz.questions.values_list('id', flat=True))
+        valid_questions_ids = set(
+            self.instance.quiz.questions.values_list("id", flat=True)
+        )
 
         for answer_item in values:
-            q_id = answer_item['question_id']
+            q_id = answer_item["question_id"]
             if q_id not in valid_questions_ids:
-                raise ValidationError(f"Question with id {q_id} does not belong to this quiz.")
+                raise ValidationError(
+                    f"Question with id {q_id} does not belong to this quiz."
+                )
         return values
 
-
     def update(self, instance, validated_data: Dict[str, Any]) -> QuizAttempt:
-        answers_data = validated_data.pop('answers')
+        answers_data = validated_data.pop("answers")
 
         with transaction.atomic():
 
             instance.completed_at = timezone.now()
             instance.save()
 
-
             for answer_data in answers_data:
-                question_id = answer_data['question_id']
-                selected_option_ids = answer_data['selected_options']
+                question_id = answer_data["question_id"]
+                selected_option_ids = answer_data["selected_options"]
 
                 user_answer = UserAnswer.objects.create(
                     attempt=instance,
@@ -245,4 +251,3 @@ class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
                 user_answer.selected_options.set(selected_option_ids)
 
         return instance
-

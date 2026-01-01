@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from drf_spectacular.utils import OpenApiTypes, extend_schema, inline_serializer
@@ -10,12 +12,14 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from users.serializers import RegisterSerializer, UserSerializer, LoginSerializer
+from users.serializers import LoginSerializer, RegisterSerializer, UserSerializer
 from users.throttling import LoginRateThrottle
-import logging
+
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
+
+
 class LoginAPIView(APIView):
     authentication_classes = []
     throttle_classes = [LoginRateThrottle]
@@ -173,7 +177,9 @@ class UserProfileAPIView(APIView):
         responses={200: UserSerializer},
     )
     def get(self, request: Request) -> Response:
-        user = User.objects.prefetch_related("favourite_tests", "quiz_attempts").get(user=request.user)
+        user = User.objects.prefetch_related("favourite_tests", "quiz_attempts").get(
+            user=request.user
+        )
         serializer = UserSerializer(user, context={"request": request})
         logger.info(f"Retrieved profile for user: {request.user}")
         return Response(serializer.data)
@@ -190,10 +196,14 @@ class UserProfileAPIView(APIView):
             request.user, data=request.data, partial=True, context={"request": request}
         )
         if serializer.is_valid():
-            logger.info(f"Updating profile for user: {request.user} with data: {request.data}")
+            logger.info(
+                f"Updating profile for user: {request.user} with data: {request.data}"
+            )
             serializer.save()
             return Response(serializer.data)
-        logger.warning(f"Failed to update profile for user: {request.user} with errors: {serializer.errors}")
+        logger.warning(
+            f"Failed to update profile for user: {request.user} with errors: {serializer.errors}"
+        )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -221,7 +231,9 @@ class CustomTokenRefreshView(TokenRefreshView):
         refresh_token = request.COOKIES.get("refresh")
         logger.info(f"Token refresh attempt with refresh token: {refresh_token}")
         if not refresh_token:
-            logger.warning(f"Failed token refresh attempt with refresh token: {refresh_token}")
+            logger.warning(
+                f"Failed token refresh attempt with refresh token: {refresh_token}"
+            )
             return Response(
                 {"detail": "Refresh token not found in cookies."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -233,7 +245,9 @@ class CustomTokenRefreshView(TokenRefreshView):
             logger.info(f"Refreshing access token with refresh token: {refresh_token}")
             serializer.is_valid(raise_exception=True)
         except TokenError:
-            logger.warning(f"Failed to refresh access token with refresh token: {refresh_token}")
+            logger.warning(
+                f"Failed to refresh access token with refresh token: {refresh_token}"
+            )
             return Response(
                 {"detail": "Invalid or expired refresh token."},
                 status=status.HTTP_401_UNAUTHORIZED,

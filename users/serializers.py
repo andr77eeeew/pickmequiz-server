@@ -1,15 +1,19 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
+
 from quiz.models import Quiz
+
 User = get_user_model()
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True,
-                                     required=True,
-                                     validators=[validate_password],
-                                     style={"input_type": "password"})
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        validators=[validate_password],
+        style={"input_type": "password"},
+    )
 
     class Meta:
         model = User
@@ -33,6 +37,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
+
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)
@@ -41,7 +46,8 @@ class LoginSerializer(serializers.Serializer):
 class FavouriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quiz
-        fields = ("id", 'title', "description")
+        fields = ("id", "title", "description")
+
 
 class UserSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
@@ -52,7 +58,17 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("id", "username", "email", "first_name", "last_name", "avatar", "about", "favourite_tests", "passed_tests_count")
+        fields = (
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "avatar",
+            "about",
+            "favourite_tests",
+            "passed_tests_count",
+        )
         read_only_fields = ("id", "username", "email", "passed_tests_count")
 
     def get_avatar(self, obj):
@@ -62,4 +78,9 @@ class UserSerializer(serializers.ModelSerializer):
         return None
 
     def get_passed_tests_count(self, obj):
-        return obj.quiz_attempts.filter(completed_at__isnull=False).values("quiz").distinct().count()
+        return (
+            obj.quiz_attempts.filter(completed_at__isnull=False)
+            .values("quiz")
+            .distinct()
+            .count()
+        )

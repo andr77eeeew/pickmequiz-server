@@ -1,20 +1,27 @@
+import logging
+
 from django.db.models import QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import viewsets, status
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.request import Request
 from rest_framework.response import Response
-import logging
 
 from .models import Quiz, QuizAttempt
 from .permissions import IsCreator
-from .serializers import QuizListSerializer, QuizDetailSerializer, QuizAttemptStartSerializer, \
-    QuizAttemptSubmitSerializer
+from .serializers import (
+    QuizAttemptStartSerializer,
+    QuizAttemptSubmitSerializer,
+    QuizDetailSerializer,
+    QuizListSerializer,
+)
 
 logger = logging.getLogger(__name__)
+
+
 @extend_schema_view(
     list=extend_schema(
         summary="List Quiz",
@@ -73,6 +80,7 @@ class QuizViewSet(viewsets.ModelViewSet):
 
         return Quiz.objects.all()
 
+
 class QuizAttemptViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self) -> QuerySet:
@@ -82,6 +90,7 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
         if self.action == "submit":
             return QuizAttemptSubmitSerializer
         return QuizAttemptStartSerializer
+
     @extend_schema(
         summary="Start a Quiz Attempt",
         description="Start a new attempt for a quiz.",
@@ -94,12 +103,14 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
 
         quiz_serializer = QuizDetailSerializer(attempt.quiz)
 
-        return Response({
-            'attempt_id': attempt.id,
-            'quiz': quiz_serializer.data,
-            'strted_at': attempt.started_at,
-        }, status = status.HTTP_201_CREATED)
-
+        return Response(
+            {
+                "attempt_id": attempt.id,
+                "quiz": quiz_serializer.data,
+                "strted_at": attempt.started_at,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     @extend_schema(
         summary="Submit a Quiz Attempt",

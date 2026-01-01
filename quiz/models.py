@@ -1,17 +1,17 @@
 import os
 
-from django.core.exceptions import ValidationError
-from django.db import models
 from django.conf import settings
-
+from django.db import models
 
 # Create your models here.
+
 
 def question_photo_path(instance, filename):
     ext = os.path.splitext(filename)[1]
     if not ext:
-        ext = '.jpg'
-    return f'questions/{instance.quiz.id}/{instance.order}{ext}'
+        ext = ".jpg"
+    return f"questions/{instance.quiz.id}/{instance.order}{ext}"
+
 
 class QuizCategory(models.TextChoices):
     GENERAL = "general", "General Knowledge"
@@ -26,12 +26,16 @@ class QuizCategory(models.TextChoices):
 class Quiz(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
-    category = models.CharField(max_length=100, choices = QuizCategory.choices, default=QuizCategory.GENERAL)
+    category = models.CharField(
+        max_length=100, choices=QuizCategory.choices, default=QuizCategory.GENERAL
+    )
     is_time_limited = models.BooleanField(default=False)
     time_limit = models.DurationField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     creator = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="created_quizzes"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="created_quizzes",
     )
     last_modified = models.DateTimeField(auto_now=True)
 
@@ -125,7 +129,7 @@ class QuizAttempt(models.Model):
             models.UniqueConstraint(
                 fields=["user", "quiz"],
                 condition=models.Q(completed_at__isnull=True),
-                name="unique_quiz_per_user"
+                name="unique_quiz_per_user",
             )
         ]
 
@@ -156,5 +160,7 @@ class UserAnswer(models.Model):
         ]
 
     def __str__(self):
-        return (f"Answer by {self.attempt.user.username} "
-                f"for Question {self.question.order} in Quiz {self.question.quiz.title}")
+        return (
+            f"Answer by {self.attempt.user.username} "
+            f"for Question {self.question.order} in Quiz {self.question.quiz.title}"
+        )

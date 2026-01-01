@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework import routers
 
-from .views import QuizViewSet, QuizAttemptViewSet
+from .views import QuizAttemptViewSet, QuizViewSet
 
 app_name = "quiz"
 
