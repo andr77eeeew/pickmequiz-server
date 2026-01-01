@@ -1,3 +1,5 @@
+import os
+
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.conf import settings
@@ -5,6 +7,11 @@ from django.conf import settings
 
 # Create your models here.
 
+def question_photo_path(instance, filename):
+    ext = os.path.splitext(filename)[1]
+    if not ext:
+        ext = '.jpg'
+    return f'questions/{instance.quiz.id}/{instance.order}{ext}'
 
 class QuizCategory(models.TextChoices):
     GENERAL = "general", "General Knowledge"
@@ -24,7 +31,7 @@ class Quiz(models.Model):
     time_limit = models.DurationField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     creator = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="quiz_creator"
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="created_quizzes"
     )
     last_modified = models.DateTimeField(auto_now=True)
 
@@ -46,13 +53,6 @@ class Quiz(models.Model):
             return 0
         return self.MAX_SCORE / question_count
 
-    def clean(self):
-        if self.is_time_limited:
-            if not self.time_limit:
-                raise ValidationError("Time limit is required if is_time_limited is True.")
-            if self.time_limit. total_seconds() <= 0:
-                raise ValidationError("Time limit must be positive.")
-
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
@@ -71,7 +71,7 @@ class Question(models.Model):
     )  # e.g., 'single', 'multiple's
     order = models.IntegerField()
     question_photo = models.ImageField(
-        upload_to="question_photos/", null=True, blank=True
+        upload_to=question_photo_path, null=True, blank=True
     )
 
     class Meta:
@@ -103,7 +103,7 @@ class AnswerOption(models.Model):
         verbose_name_plural = "Answer Options"
 
     def __str__(self):
-        return f"Answer Option for Question {self.question.order} in Quiz {self.question.quiz.title}"
+        return f"{self.text[: 50]} ({'✓' if self.is_correct else '✗'})"
 
 
 class QuizAttempt(models.Model):
@@ -113,7 +113,7 @@ class QuizAttempt(models.Model):
     quiz = models.ForeignKey(
         Quiz, on_delete=models.CASCADE, related_name="quiz_attempts"
     )
-    score = models.FloatField(default=0.0,)
+    score = models.FloatField(default=0.0)
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
@@ -121,6 +121,13 @@ class QuizAttempt(models.Model):
         db_table = "quiz_attempt"
         verbose_name = "Quiz Attempt"
         verbose_name_plural = "Quiz Attempts"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "quiz"],
+                condition=models.Q(completed_at__isnull=True),
+                name="unique_quiz_per_user"
+            )
+        ]
 
     def __str__(self):
         return f"Attempt by {self.user.username} for Quiz {self.quiz.title}"
