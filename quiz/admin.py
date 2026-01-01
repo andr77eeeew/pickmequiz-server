@@ -19,6 +19,10 @@ class QuizAdmin(admin.ModelAdmin):
     search_fields = ('title', 'description')
     inlines = [QuestionInline]
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.prefetch_related('questions__answer_options')
+
     def save_model(self, request, obj, form, change):
         if not obj.pk:
             obj.creator = request.user
