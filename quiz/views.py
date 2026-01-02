@@ -84,7 +84,9 @@ class QuizViewSet(viewsets.ModelViewSet):
 class QuizAttemptViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self) -> QuerySet:
-        return QuizAttempt.objects.filter(user=self.request.user)
+        return QuizAttempt.objects.filter(user=self.request.user)\
+                .select_related("quiz")\
+                .prefetch_related("user_answers__selected_options")
 
     def get_serializer_class(self):
         if self.action == "submit":
@@ -97,6 +99,25 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
         tags=["Quiz Attempts"],
     )
     def create(self, request: Request, *args, **kwargs) -> Response:
+
+        quiz_id = request.data["quiz"]
+
+        active_attempt = QuizAttempt.objects.filter(
+            user=request.user,
+            quiz_id=quiz_id,
+            completed_at__isnull=True,
+        ).first()
+
+        if active_attempt:
+            logger.warning(f"User {request.user} already has an active attempt for Quiz ID {quiz_id}")
+            return Response(
+                {
+                 "detail": "You already have an active attempt for this quiz.",
+                 "attempt_id": active_attempt.id
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         attempt = serializer.save(user=self.request.user)
@@ -107,7 +128,7 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
             {
                 "attempt_id": attempt.id,
                 "quiz": quiz_serializer.data,
-                "strted_at": attempt.started_at,
+                "started_at": attempt.started_at,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -127,9 +148,14 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
                 {"detail": "This attempt has already been completed."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        logger.info(f"Attempt ID: {attempt.id}")
         serializer = self.get_serializer(attempt, data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        try:
+            serializer.save()
+        except Exception as e:
+            logger.error(f"Error submitting attempt ID: {attempt.id} - {str(e)}")
+            return Response(
+                {"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         return Response(serializer.data)
