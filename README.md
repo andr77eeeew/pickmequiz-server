@@ -1,6 +1,6 @@
 # PickMeQuiz Server
 
-![Django CI](https://github.com/andr77eeeew/pickmequiz-server/workflows/Django%20CI/badge. svg? branch=dev)
+[![Django CI with Coverage](https://github.com/andr77eeeew/pickmequiz-server/actions/workflows/ci.yml/badge.svg)](https://github.com/andr77eeeew/pickmequiz-server/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/andr77eeeew/pickmequiz-server/branch/dev/graph/badge.svg)](https://codecov.io/gh/andr77eeeew/pickmequiz-server)
 
 Backend для приложения PickMeQuiz — платформы для создания и прохождения тестов.
