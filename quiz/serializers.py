@@ -154,9 +154,13 @@ class QuizDetailSerializer(serializers.ModelSerializer):
                         quiz=instance, order=index, **question_data
                     )
 
-                current_option_ids = set(question.answer_options.values_list("id", flat=True))
+                current_option_ids = set(
+                    question.answer_options.values_list("id", flat=True)
+                )
                 incoming_option_ids = {
-                    item.get("id") for item in options_data if item.get("id") is not None
+                    item.get("id")
+                    for item in options_data
+                    if item.get("id") is not None
                 }
 
                 options_to_delete = current_option_ids - incoming_option_ids
@@ -169,7 +173,7 @@ class QuizDetailSerializer(serializers.ModelSerializer):
                     if option_id and option_id in current_option_ids:
                         option = AnswerOption.objects.get(id=option_id)
                         for attr, value in option_data.items():
-                            if attr != 'id':
+                            if attr != "id":
                                 setattr(option, attr, value)
                         option.save()
                     else:

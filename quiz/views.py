@@ -84,9 +84,11 @@ class QuizViewSet(viewsets.ModelViewSet):
 class QuizAttemptViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self) -> QuerySet:
-        return QuizAttempt.objects.filter(user=self.request.user)\
-                .select_related("quiz")\
-                .prefetch_related("user_answers__selected_options")
+        return (
+            QuizAttempt.objects.filter(user=self.request.user)
+            .select_related("quiz")
+            .prefetch_related("user_answers__selected_options")
+        )
 
     def get_serializer_class(self):
         if self.action == "submit":
@@ -109,11 +111,13 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
         ).first()
 
         if active_attempt:
-            logger.warning(f"User {request.user} already has an active attempt for Quiz ID {quiz_id}")
+            logger.warning(
+                f"User {request.user} already has an active attempt for Quiz ID {quiz_id}"
+            )
             return Response(
                 {
-                 "detail": "You already have an active attempt for this quiz.",
-                 "attempt_id": active_attempt.id
+                    "detail": "You already have an active attempt for this quiz.",
+                    "attempt_id": active_attempt.id,
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -154,8 +158,6 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
             serializer.save()
         except Exception as e:
             logger.error(f"Error submitting attempt ID: {attempt.id} - {str(e)}")
-            return Response(
-                {"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(serializer.data)
