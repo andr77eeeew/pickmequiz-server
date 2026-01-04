@@ -558,3 +558,4 @@ logs/
 .coverage
 htmlcov/
 coverage.xml!/.coverage
+!/.coveragerc
