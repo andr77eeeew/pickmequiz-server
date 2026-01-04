@@ -34,8 +34,9 @@ class Quiz(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     creator = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="created_quizzes",
+        null=True,
     )
     last_modified = models.DateTimeField(auto_now=True)
 
