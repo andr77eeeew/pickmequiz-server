@@ -260,6 +260,7 @@ class CustomTokenRefreshView(TokenRefreshView):
 
 class LeaderboardAPIView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
+    ORDERING_FIELDS = ["total_score", "tests_passed"]
 
     @extend_schema(
         summary="Get Leaderboard",
@@ -273,7 +274,7 @@ class LeaderboardAPIView(APIView):
             required=False,
             type=OpenApiTypes.STR,
             location=OpenApiParameter.QUERY,
-            enum=["total_score", "tests_passed"],
+            enum=ORDERING_FIELDS,
             default="total_score",
             ),
         ]
@@ -281,7 +282,7 @@ class LeaderboardAPIView(APIView):
     def get(self, request: Request, *args, **kwargs) -> Response:
         ordering = request.query_params.get("ordering", "total_score")
 
-        if ordering not in ["total_score", "tests_passed"]:
+        if ordering not in self.ORDERING_FIELDS:
             ordering = "total_score"
 
         top_users = (User.objects

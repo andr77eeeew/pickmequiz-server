@@ -50,10 +50,7 @@ class FavouriteSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    avatar = serializers.SerializerMethodField()
-
     favourite_tests = FavouriteSerializer(many=True)
-
     passed_tests_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -70,12 +67,6 @@ class UserSerializer(serializers.ModelSerializer):
             "passed_tests_count",
         )
         read_only_fields = ("id", "username", "email", "passed_tests_count")
-
-    def get_avatar(self, obj):
-        request = self.context.get("request")
-        if obj.avatar:
-            return request.build_absolute_uri(obj.avatar.url)
-        return None
 
     def get_passed_tests_count(self, obj):
         return (
