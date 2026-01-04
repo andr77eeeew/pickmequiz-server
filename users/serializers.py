@@ -84,3 +84,11 @@ class UserSerializer(serializers.ModelSerializer):
             .distinct()
             .count()
         )
+
+class LeaderboardUserSerializer(serializers.ModelSerializer):
+    total_score = serializers.FloatField(read_only=True)
+    tests_passed = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "avatar", "total_score", "tests_passed"]

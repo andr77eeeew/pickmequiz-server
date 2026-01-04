@@ -2,9 +2,11 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
-from drf_spectacular.utils import OpenApiTypes, extend_schema, inline_serializer
+from django.db.models import Sum, Count
+from django.db.models.functions import Coalesce
+from drf_spectacular.utils import OpenApiTypes, extend_schema, inline_serializer, OpenApiParameter
 from rest_framework import serializers, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -12,7 +14,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from users.serializers import LoginSerializer, RegisterSerializer, UserSerializer
+from users.serializers import LoginSerializer, RegisterSerializer, UserSerializer, LeaderboardUserSerializer
 from users.throttling import LoginRateThrottle
 
 User = get_user_model()
@@ -254,3 +256,40 @@ class CustomTokenRefreshView(TokenRefreshView):
             )
         logger.info(f"Successful token refresh with refresh token: {refresh_token}")
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+
+class LeaderboardAPIView(APIView):
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    @extend_schema(
+        summary="Get Leaderboard",
+        description="Retrieve the top 10 users with the highest total quiz scores",
+        tags=["Leaderboard"],
+        responses={200: LeaderboardUserSerializer(many=True)},
+        parameters=[
+        OpenApiParameter(
+            name="ordering",
+            description="Criteria to sort the leaderboard",
+            required=False,
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            enum=["total_score", "tests_passed"],
+            default="total_score",
+            ),
+        ]
+    )
+    def get(self, request: Request, *args, **kwargs) -> Response:
+        ordering = request.query_params.get("ordering", "total_score")
+
+        if ordering not in ["total_score", "tests_passed"]:
+            ordering = "total_score"
+
+        top_users = (User.objects
+                     .filter(quiz_attempts__completed_at__isnull=False)
+                     .annotate(total_score=Coalesce(Sum('quiz_attempts__score'), 0.0),
+                               tests_passed=Count("quiz_attempts__quiz", distinct=True)
+                               )
+                     .order_by(f"-{ordering}")[:10])
+
+        serializer = LeaderboardUserSerializer(top_users, many=True)
+        return Response(serializer.data)
