@@ -1,12 +1,13 @@
 import logging
 
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Count
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from environs import ValidationError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -62,6 +63,7 @@ class QuizViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ["category"]
     search_fields = ["title", "description"]
+    ordering_fields = ["created_at", "likes_count"]
 
     def get_serializer_class(self):
         logger.info(f"Getting serializer class for action: {self.action}")
@@ -73,15 +75,29 @@ class QuizViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self) -> QuerySet:
         logger.info(f"Getting queryset for action: {self.action}")
+        queryset = Quiz.objects.annotate(likes_count=Count("favoured_by"))
         if self.action == "list":
-            return Quiz.objects.all().select_related("creator")
+            queryset = queryset.select_related("creator")
         elif self.action in ["retrieve", "update", "partial_update", "destroy"]:
-            return Quiz.objects.prefetch_related("questions__answer_options")
+            queryset = queryset.prefetch_related("questions__answer_options")
 
-        return Quiz.objects.all()
+        return queryset
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    def add_or_remove_favorite(self, request: Request, pk=None) -> Response:
+        quiz = self.get_object()
+        user = request.user
+
+        if user.favourite_tests.filter(quiz_id=pk).exists():
+            user.favourite_tests.remove(quiz)
+            return Response({"detail": "Quiz removed from favorites."}, status=status.HTTP_200_OK)
+        else:
+            user.favourite_tests.add(quiz)
+            return Response({"detail": "Quiz added to favorites."}, status=status.HTTP_200_OK)
 
 
 class QuizAttemptViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self) -> QuerySet:
         return (
@@ -156,7 +172,7 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         try:
             serializer.save()
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Error submitting attempt ID: {attempt.id} - {str(e)}")
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

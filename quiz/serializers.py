@@ -6,6 +6,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from .models import AnswerOption, Question, Quiz, QuizAttempt, UserAnswer
+from .services import update_quiz_full
 
 
 class AnswerOptionSerializer(serializers.ModelSerializer):
@@ -88,6 +89,12 @@ class QuizDetailSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"time_limit": "Time limit is required when quiz is time limited"}
             )
+
+        if self.instance and self.instance.quiz_attempts.exists():
+            if 'questions' in data:
+                raise serializers.ValidationError(
+                    "Cannot modify questions of a quiz that has attempts."
+                )
         return data
 
     def validate_questions(self, value):
@@ -116,68 +123,13 @@ class QuizDetailSerializer(serializers.ModelSerializer):
         return quiz
 
     def update(self, instance: Quiz, validated_data: Dict[str, Any]) -> Quiz:
-
         questions_data = validated_data.pop("questions", None)
 
-        with transaction.atomic():
-            for attr, value in validated_data.items():
-                setattr(instance, attr, value)
-            instance.save()
+        super().update(instance, validated_data)
 
-            if questions_data is None:
-                return instance
+        if questions_data is not None:
+            update_quiz_full(instance, questions_data)
 
-            current_question_ids = {q.id for q in instance.questions.all()}
-
-            incoming_question_ids = {
-                item.get("id") for item in questions_data if item.get("id") is not None
-            }
-
-            ids_to_delete = current_question_ids - incoming_question_ids
-            if ids_to_delete:
-                Question.objects.filter(id__in=ids_to_delete).delete()
-
-            for index, question_data in enumerate(questions_data, start=1):
-                question_id = question_data.get("id")
-                options_data = question_data.pop("answer_options", [])
-
-                if question_id and question_id in current_question_ids:
-
-                    question = Question.objects.get(id=question_id)
-
-                    for attr, value in question_data.items():
-                        setattr(question, attr, value)
-                    question.order = index
-                    question.save()
-                else:
-                    question = Question.objects.create(
-                        quiz=instance, order=index, **question_data
-                    )
-
-                current_option_ids = set(
-                    question.answer_options.values_list("id", flat=True)
-                )
-                incoming_option_ids = {
-                    item.get("id")
-                    for item in options_data
-                    if item.get("id") is not None
-                }
-
-                options_to_delete = current_option_ids - incoming_option_ids
-                if options_to_delete:
-                    AnswerOption.objects.filter(id__in=options_to_delete).delete()
-
-                for option_data in options_data:
-                    option_id = option_data.get("id")
-
-                    if option_id and option_id in current_option_ids:
-                        option = AnswerOption.objects.get(id=option_id)
-                        for attr, value in option_data.items():
-                            if attr != "id":
-                                setattr(option, attr, value)
-                        option.save()
-                    else:
-                        AnswerOption.objects.create(question=question, **option_data)
         return instance
 
 
@@ -217,8 +169,8 @@ class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuizAttempt
-        fields = ["answers", "completed_at"]
-        read_only_fields = ["completed_at"]
+        fields = ["answers", "completed_at", "score"]
+        read_only_fields = ["completed_at", "score"]
 
     def validate_selected_options(self, value, selected_option):
         if value.answer_type == "single" and len(selected_option) != 1:
@@ -239,34 +191,83 @@ class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
         return value
 
     def validate_answers(self, values):
+        quiz_questions = self.instance.quiz.questions.all()
         valid_questions_ids = set(
             self.instance.quiz.questions.values_list("id", flat=True)
         )
 
+        questions_map = {q.id: q for q in quiz_questions}
+
+        seen_questions = set()
+
         for answer_item in values:
             q_id = answer_item["question_id"]
+            selected_ids = answer_item["selected_options"]
+
             if q_id not in valid_questions_ids:
                 raise ValidationError(
                     f"Question with id {q_id} does not belong to this quiz."
                 )
+
+            if q_id in seen_questions:
+                raise ValidationError(
+                    f"Duplicate answers found for question id {q_id}."
+                )
+            seen_questions.add(q_id)
+
+            question = questions_map[q_id]
+
+            valid_options_ids = set(question.answer_options.values_list('id', flat=True))
+
+            if not set(selected_ids).issubset(valid_options_ids):
+                raise ValidationError(
+                    f"One or more selected options are invalid for question id {q_id}."
+                )
+            if question.answer_type == "single" and len(selected_ids) != 1:
+                raise ValidationError(
+                    f"Question id {q_id} requires exactly one selected option."
+                )
+
         return values
 
     def update(self, instance, validated_data: Dict[str, Any]) -> QuizAttempt:
         answers_data = validated_data.pop("answers")
 
-        with transaction.atomic():
+        question_score = instance.quiz.get_question_score()
 
+        correct_answers_map = {}
+
+        questions = instance.quiz.questions.prefetch_related("answer_options")
+
+        for q in questions:
+            correct_opts = set(opt.id for opt in q.answer_options.all() if opt.is_correct)
+            correct_answers_map[q.id] = correct_opts
+
+        total_score = 0.0
+        user_answers_to_create = []
+        with transaction.atomic():
+            for answer_data in answers_data:
+                q_id = answer_data["question_id"]
+                selected_ids = set(answer_data["selected_options"])
+
+                correct_ids = correct_answers_map.get(q_id, set())
+
+                if selected_ids == correct_ids and correct_ids:
+                    total_score += question_score
+
+                user_answer = UserAnswer(
+                    attempt=instance,
+                    question_id=q_id,
+                )
+                user_answers_to_create.append((user_answer, selected_ids))
+
+            instance.score = total_score
             instance.completed_at = timezone.now()
             instance.save()
 
-            for answer_data in answers_data:
-                question_id = answer_data["question_id"]
-                selected_option_ids = answer_data["selected_options"]
+            created_answers = UserAnswer.objects.bulk_create([x[0] for x in user_answers_to_create])
 
-                user_answer = UserAnswer.objects.create(
-                    attempt=instance,
-                    question_id=question_id,
-                )
-                user_answer.selected_options.set(selected_option_ids)
+            for ua, ids in zip(created_answers, [x[1] for x in user_answers_to_create]):
+                ua.selected_options.set(ids)
 
         return instance
