@@ -2,20 +2,21 @@ import shutil
 import tempfile
 from io import BytesIO
 
-from PIL import Image
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils.http import urlencode
+from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from quiz.models import Quiz, QuizAttempt, Question
+from quiz.models import Question, Quiz, QuizAttempt
 
 User = get_user_model()
 
 MEDIA_ROOT = tempfile.mkdtemp()
+
 
 class QuizCRUDTests(APITestCase):
     def setUp(self):
@@ -57,7 +58,6 @@ class QuizCRUDTests(APITestCase):
     def tearDownClass(cls):
         shutil.rmtree(MEDIA_ROOT, ignore_errors=True)
         super().tearDownClass()
-
 
     def authenticate_user(self, user):
         refresh = RefreshToken.for_user(user)
@@ -328,42 +328,41 @@ class QuizCRUDTests(APITestCase):
         self.assertEqual(results[0]["title"], "Python Science")
         self.assertEqual(results[0]["category"], "science")
 
-
     def test_full_update_quiz(self):
-            self.authenticate_user(self.author)
-            quiz = Quiz.objects.create(
-                title="Initial Title", creator=self.author, description="Initial Desc"
-            )
-            url = reverse("quiz:quiz-detail", kwargs={"pk": quiz.pk})
+        self.authenticate_user(self.author)
+        quiz = Quiz.objects.create(
+            title="Initial Title", creator=self.author, description="Initial Desc"
+        )
+        url = reverse("quiz:quiz-detail", kwargs={"pk": quiz.pk})
 
-            updated_data = {
-                "title": "Updated Title",
-                "description": "Updated Description",
-                "is_time_limited": False,
-                "questions": [
-                    {
-                        "title": "New Question",
-                        "answer_options": [
-                            {"text": "New Option 1", "is_correct": True},
-                            {"text": "New Option 2", "is_correct": False},
-                        ],
-                    }
-                ],
-            }
+        updated_data = {
+            "title": "Updated Title",
+            "description": "Updated Description",
+            "is_time_limited": False,
+            "questions": [
+                {
+                    "title": "New Question",
+                    "answer_options": [
+                        {"text": "New Option 1", "is_correct": True},
+                        {"text": "New Option 2", "is_correct": False},
+                    ],
+                }
+            ],
+        }
 
-            response = self.client.put(url, updated_data, format="json")
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        response = self.client.put(url, updated_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-            quiz.refresh_from_db()
-            self.assertEqual(quiz.title, "Updated Title")
-            self.assertEqual(quiz.description, "Updated Description")
-            self.assertEqual(quiz.questions.count(), 1)
-            self.assertEqual(
-                quiz.questions.first().title, "New Question"
-            )
+        quiz.refresh_from_db()
+        self.assertEqual(quiz.title, "Updated Title")
+        self.assertEqual(quiz.description, "Updated Description")
+        self.assertEqual(quiz.questions.count(), 1)
+        self.assertEqual(quiz.questions.first().title, "New Question")
 
     def test_question_photo_path_logic(self):
-        user = User.objects.create_user(username="creator", email="c@t.com", password="pwd")
+        user = User.objects.create_user(
+            username="creator", email="c@t.com", password="pwd"
+        )
         quiz = Quiz.objects.create(title="Photo Quiz", creator=user, description="..")
 
         photo = self.generate_photo_file("my_cool_photo.jpg")

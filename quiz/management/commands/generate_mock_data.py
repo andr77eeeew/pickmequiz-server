@@ -6,10 +6,18 @@ from django.db import transaction
 from django.utils import timezone
 from faker import Faker
 
-from quiz.models import QuizCategory, Quiz, Question, QuestionType, AnswerOption, QuizAttempt
+from quiz.models import (
+    AnswerOption,
+    Question,
+    QuestionType,
+    Quiz,
+    QuizAttempt,
+    QuizCategory,
+)
 
-User= get_user_model()
+User = get_user_model()
 fake = Faker()
+
 
 class Command(BaseCommand):
     help = "Generates fake data for testing"
@@ -32,7 +40,7 @@ class Command(BaseCommand):
                     password="password123",
                     first_name=fake.first_name(),
                     last_name=fake.last_name(),
-                    about=fake.text(max_nb_chars=100)
+                    about=fake.text(max_nb_chars=100),
                 )
                 users.append(user)
 
@@ -44,33 +52,39 @@ class Command(BaseCommand):
 
             for i in range(QUIZZES_COUNT):
                 quiz = Quiz.objects.create(
-                    title=fake.sentence(nb_words=5).rstrip('.'),
+                    title=fake.sentence(nb_words=5).rstrip("."),
                     description=fake.text(max_nb_chars=200),
                     category=random.choice(categories),
                     creator=author,
                     is_time_limited=random.choice([True, False]),
-                    time_limit=timezone.timedelta(minutes=random.randint(5, 30)) if random.choice([True, False]) else None,
+                    time_limit=(
+                        timezone.timedelta(minutes=random.randint(5, 30))
+                        if random.choice([True, False])
+                        else None
+                    ),
                 )
 
                 for q_idx in range(random.randint(5, 10)):
                     question = Question.objects.create(
                         quiz=quiz,
-                        title=fake.sentence(nb_words=5).rstrip('.') + "?",
+                        title=fake.sentence(nb_words=5).rstrip(".") + "?",
                         answer_type=QuestionType.SINGLE,
-                        order = q_idx +1
+                        order=q_idx + 1,
                     )
 
                     for opt_idx in range(4):
                         AnswerOption.objects.create(
                             question=question,
                             text=fake.word(),
-                            is_correct=(opt_idx == 0)
+                            is_correct=(opt_idx == 0),
                         )
                     quizzes.append(quiz)
 
-            self.stdout.write(f"Simulating quiz attempts...")
+            self.stdout.write("Simulating quiz attempts...")
             for user in users:
-                passed_quizzes = random.sample(quizzes, k=min(len(quizzes), ATTEMPTS_PRE_USER))
+                passed_quizzes = random.sample(
+                    quizzes, k=min(len(quizzes), ATTEMPTS_PRE_USER)
+                )
 
                 for quiz in passed_quizzes:
                     random_score = random.randint(0, 10) * 10.0
@@ -79,7 +93,7 @@ class Command(BaseCommand):
                         user=user,
                         quiz=quiz,
                         score=random_score,
-                        completed_at=timezone.now()
+                        completed_at=timezone.now(),
                     )
 
             self.stdout.write("Adding favourites...")

@@ -91,7 +91,7 @@ class QuizDetailSerializer(serializers.ModelSerializer):
             )
 
         if self.instance and self.instance.quiz_attempts.exists():
-            if 'questions' in data:
+            if "questions" in data:
                 raise serializers.ValidationError(
                     "Cannot modify questions of a quiz that has attempts."
                 )
@@ -217,7 +217,9 @@ class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
 
             question = questions_map[q_id]
 
-            valid_options_ids = set(question.answer_options.values_list('id', flat=True))
+            valid_options_ids = set(
+                question.answer_options.values_list("id", flat=True)
+            )
 
             if not set(selected_ids).issubset(valid_options_ids):
                 raise ValidationError(
@@ -240,7 +242,9 @@ class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
         questions = instance.quiz.questions.prefetch_related("answer_options")
 
         for q in questions:
-            correct_opts = set(opt.id for opt in q.answer_options.all() if opt.is_correct)
+            correct_opts = set(
+                opt.id for opt in q.answer_options.all() if opt.is_correct
+            )
             correct_answers_map[q.id] = correct_opts
 
         total_score = 0.0
@@ -265,7 +269,9 @@ class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
             instance.completed_at = timezone.now()
             instance.save()
 
-            created_answers = UserAnswer.objects.bulk_create([x[0] for x in user_answers_to_create])
+            created_answers = UserAnswer.objects.bulk_create(
+                [x[0] for x in user_answers_to_create]
+            )
 
             for ua, ids in zip(created_answers, [x[1] for x in user_answers_to_create]):
                 ua.selected_options.set(ids)

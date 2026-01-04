@@ -2,11 +2,11 @@ import shutil
 import tempfile
 from io import BytesIO
 
-from PIL import Image
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
+from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -16,6 +16,7 @@ from quiz.models import Quiz, QuizAttempt
 User = get_user_model()
 
 MEDIA_ROOT = tempfile.mkdtemp()
+
 
 class AuthTests(APITestCase):
     def setUp(self):
@@ -186,15 +187,27 @@ class AuthTests(APITestCase):
 
     def test_leaderboard_sorting_and_content(self):
 
-        user_low = User.objects.create_user(username="Loser", email="l@t.com", password="pwd")
-        user_mid = User.objects.create_user(username="Middle", email="m@t.com", password="pwd")
-        user_top = User.objects.create_user(username="Winner", email="w@t.com", password="pwd")
+        user_low = User.objects.create_user(
+            username="Loser", email="l@t.com", password="pwd"
+        )
+        user_mid = User.objects.create_user(
+            username="Middle", email="m@t.com", password="pwd"
+        )
+        user_top = User.objects.create_user(
+            username="Winner", email="w@t.com", password="pwd"
+        )
 
         quiz = Quiz.objects.create(title="Q1", creator=user_top, description="d")
 
-        QuizAttempt.objects.create(user=user_top, quiz=quiz, score=100, completed_at=timezone.now())
-        QuizAttempt.objects.create(user=user_mid, quiz=quiz, score=50, completed_at=timezone.now())
-        QuizAttempt.objects.create(user=user_low, quiz=quiz, score=10, completed_at=timezone.now())
+        QuizAttempt.objects.create(
+            user=user_top, quiz=quiz, score=100, completed_at=timezone.now()
+        )
+        QuizAttempt.objects.create(
+            user=user_mid, quiz=quiz, score=50, completed_at=timezone.now()
+        )
+        QuizAttempt.objects.create(
+            user=user_low, quiz=quiz, score=10, completed_at=timezone.now()
+        )
 
         url = reverse("users:leaderboard")
 
@@ -216,16 +229,26 @@ class AuthTests(APITestCase):
         self.assertEqual(data[2]["total_score"], 10.0)
 
     def test_leaderboard_tests_passed_ordering(self):
-        u1 = User.objects.create_user(username="ManyTests", email="1@t.com", password="p")
-        u2 = User.objects.create_user(username="FewTests", email="2@t.com", password="p")
+        u1 = User.objects.create_user(
+            username="ManyTests", email="1@t.com", password="p"
+        )
+        u2 = User.objects.create_user(
+            username="FewTests", email="2@t.com", password="p"
+        )
 
         q1 = Quiz.objects.create(title="Q1", creator=u1, description="d")
         q2 = Quiz.objects.create(title="Q2", creator=u1, description="d")
 
-        QuizAttempt.objects.create(user=u1, quiz=q1, score=10, completed_at=timezone.now())
-        QuizAttempt.objects.create(user=u1, quiz=q2, score=10, completed_at=timezone.now())
+        QuizAttempt.objects.create(
+            user=u1, quiz=q1, score=10, completed_at=timezone.now()
+        )
+        QuizAttempt.objects.create(
+            user=u1, quiz=q2, score=10, completed_at=timezone.now()
+        )
 
-        QuizAttempt.objects.create(user=u2, quiz=q1, score=100, completed_at=timezone.now())
+        QuizAttempt.objects.create(
+            user=u2, quiz=q1, score=100, completed_at=timezone.now()
+        )
 
         url = reverse("users:leaderboard")
         response = self.client.get(url, {"ordering": "tests_passed"})
@@ -241,7 +264,9 @@ class AuthTests(APITestCase):
         self.assertEqual(data[1]["tests_passed"], 1)
 
     def test_upload_photo(self):
-        user = User.objects.create_user(username="photomodel", email="p@t.com", password="pwd")
+        user = User.objects.create_user(
+            username="photomodel", email="p@t.com", password="pwd"
+        )
         self.authenticate_user(user=user)
         url = reverse("users:profile")
 

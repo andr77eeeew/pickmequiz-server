@@ -1,13 +1,13 @@
 import logging
 
-from django.db.models import QuerySet, Count
+from django.db.models import Count, QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from environs import ValidationError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -90,10 +90,14 @@ class QuizViewSet(viewsets.ModelViewSet):
 
         if user.favourite_tests.filter(quiz_id=pk).exists():
             user.favourite_tests.remove(quiz)
-            return Response({"detail": "Quiz removed from favorites."}, status=status.HTTP_200_OK)
+            return Response(
+                {"detail": "Quiz removed from favorites."}, status=status.HTTP_200_OK
+            )
         else:
             user.favourite_tests.add(quiz)
-            return Response({"detail": "Quiz added to favorites."}, status=status.HTTP_200_OK)
+            return Response(
+                {"detail": "Quiz added to favorites."}, status=status.HTTP_200_OK
+            )
 
 
 class QuizAttemptViewSet(viewsets.ModelViewSet):
