@@ -2,9 +2,8 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
-from django.db.models import Count, Sum, OuterRef, Max, Subquery, FloatField
+from django.db.models import Count, FloatField
 from django.db.models.expressions import RawSQL
-from django.db.models.functions import Coalesce
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiTypes,
@@ -20,7 +19,6 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from quiz.models import QuizAttempt
 from users.serializers import (
     LeaderboardUserSerializer,
     LoginSerializer,
@@ -308,15 +306,17 @@ class LeaderboardAPIView(APIView):
                 ) AS distinct_attempts
         """
 
-        top_users = (User.objects
-                     .filter(quiz_attempts__completed_at__isnull=False)
-                     .distinct()
-                     .annotate(
-                        total_score= RawSQL(total_unique_score, params=(), output_field=FloatField()),
-                        tests_passed=Count("quiz_attempts__quiz", distinct=True),
-                    )
-                    .order_by(f"-{ordering}")[:10]
-                )
+        top_users = (
+            User.objects.filter(quiz_attempts__completed_at__isnull=False)
+            .distinct()
+            .annotate(
+                total_score=RawSQL(
+                    total_unique_score, params=(), output_field=FloatField()
+                ),
+                tests_passed=Count("quiz_attempts__quiz", distinct=True),
+            )
+            .order_by(f"-{ordering}")[:10]
+        )
 
         serializer = LeaderboardUserSerializer(top_users, many=True)
         return Response(serializer.data)
