@@ -2,7 +2,8 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
-from django.db.models import Count, Sum
+from django.db.models import Count, Sum, OuterRef, Max, Subquery, FloatField
+from django.db.models.expressions import RawSQL
 from django.db.models.functions import Coalesce
 from drf_spectacular.utils import (
     OpenApiParameter,
@@ -19,6 +20,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from quiz.models import QuizAttempt
 from users.serializers import (
     LeaderboardUserSerializer,
     LoginSerializer,
@@ -295,14 +297,26 @@ class LeaderboardAPIView(APIView):
         if ordering not in self.ORDERING_FIELDS:
             ordering = "total_score"
 
-        top_users = (
-            User.objects.filter(quiz_attempts__completed_at__isnull=False)
-            .annotate(
-                total_score=Coalesce(Sum("quiz_attempts__score"), 0.0),
-                tests_passed=Count("quiz_attempts__quiz", distinct=True),
-            )
-            .order_by(f"-{ordering}")[:10]
-        )
+        total_unique_score = """
+            SELECT COALESCE(SUM(max_score), 0)
+            FROM (
+                SELECT MAX(score) as max_score
+                FROM quiz_attempt
+                WHERE quiz_attempt.user_id = users_user.id
+                    AND quiz_attempt.completed_at IS NOT NULL
+                GROUP BY quiz_attempt.quiz_id
+                ) AS distinct_attempts
+        """
+
+        top_users = (User.objects
+                     .filter(quiz_attempts__completed_at__isnull=False)
+                     .distinct()
+                     .annotate(
+                        total_score= RawSQL(total_unique_score, params=(), output_field=FloatField()),
+                        tests_passed=Count("quiz_attempts__quiz", distinct=True),
+                    )
+                    .order_by(f"-{ordering}")[:10]
+                )
 
         serializer = LeaderboardUserSerializer(top_users, many=True)
         return Response(serializer.data)
