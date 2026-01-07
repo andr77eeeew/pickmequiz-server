@@ -10,8 +10,8 @@ from .models import User
 class QuizAttemptInline(admin.TabularInline):
     model = QuizAttempt
     fk_name = "user"
-    fields = ("quiz", "started_at", "completed_at")
-    readonly_fields = ("quiz", "started_at", "completed_at")
+    fields = ("quiz", "started_at", "completed_at", "score")
+    readonly_fields = ("quiz", "started_at", "completed_at", "score")
     extra = 0
     can_delete = False
 
