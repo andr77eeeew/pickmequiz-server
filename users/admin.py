@@ -3,6 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.db.models import Count
 
 from quiz.models import QuizAttempt
+from gamification.models import UserAchievement
 
 from .models import User
 
@@ -18,6 +19,14 @@ class QuizAttemptInline(admin.TabularInline):
     def has_add_permission(self, request, obj):
         return False
 
+class AchievementInline(admin.TabularInline):
+    model = UserAchievement
+    fk_name = "user"
+    fields = ("achievement", "received_at")
+    readonly_fields = ("received_at",)
+    extra = 0
+    can_delete = True
+
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
@@ -28,14 +37,20 @@ class CustomUserAdmin(UserAdmin):
         ("Extra Fields", {"fields": ("avatar", "about", "favourite_tests")}),
     )
 
-    inlines = [QuizAttemptInline]
-    list_display = UserAdmin.list_display + ("quiz_attempts_count",)
+    inlines = [QuizAttemptInline, AchievementInline]
+    list_display = UserAdmin.list_display + ("quiz_attempts_count", "achievements_count")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.annotate(attempts_count=Count("quiz_attempts"))
+        return qs.annotate(
+            attempts_count=Count("quiz_attempts", distinct=True),
+            achieved_count=Count("achievements", distinct=True)
+        )
 
     def quiz_attempts_count(self, obj):
         return obj.attempts_count
+    quiz_attempts_count.short_description = "Attempts"
 
-    quiz_attempts_count.short_description = "Quiz Attempts Count"
+    def achievements_count(self, obj):
+        return obj.achieved_count
+    achievements_count.short_description = "Achievements"
