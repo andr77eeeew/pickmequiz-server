@@ -20,7 +20,6 @@ MEDIA_ROOT = tempfile.mkdtemp()
 
 class QuizCRUDTests(APITestCase):
     def setUp(self):
-        # ИСПРАВЛЕНИЕ ЗДЕСЬ: Добавляем уникальные email для каждого юзера
         self.author = User.objects.create_user(
             username="author", email="author@test.com", password="password"
         )
@@ -203,11 +202,24 @@ class QuizCRUDTests(APITestCase):
 
         self.client.post(self.url_list, self.quiz_data, format="json")
 
-        QuizAttempt.objects.create(quiz=Quiz.objects.get(pk=1), user=self.author)
+        quiz = Quiz.objects.create(
+            title="Quiz",
+            creator=self.author,
+            description="Test Your Skills"
+        )
 
-        url = reverse("quiz:quiz-attempt-detail", kwargs={"pk": 1}) + "submit/"
+        question = Question.objects.create(
+            quiz=quiz,
+            title="Q1",
+            order=1,
+            answer_type="single" # Убедись, что используешь правильный тип
+        )
 
-        quiz_data = {"answers": [{"question_id": 1, "selected_options": []}]}
+        attempt = QuizAttempt.objects.create(quiz=quiz, user=self.author)
+
+        url = reverse("quiz:quiz-attempt-detail", kwargs={"pk": attempt.pk}) + "submit/"
+
+        quiz_data = {"answers": [{"question_id": question.id, "selected_options": []}]}
 
         response = self.client.patch(url, quiz_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
