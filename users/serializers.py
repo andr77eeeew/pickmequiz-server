@@ -1,9 +1,9 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from gamification.models import Achievement, UserAchievement
 from rest_framework import serializers
 
 from quiz.models import Quiz
-from gamification.models import Achievement, UserAchievement
 
 User = get_user_model()
 
@@ -49,10 +49,12 @@ class FavouriteSerializer(serializers.ModelSerializer):
         model = Quiz
         fields = ("id", "title", "description")
 
+
 class AchievementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Achievement
-        fields = ( "title", "description", "icon", "is_secret")
+        fields = ("title", "description", "icon", "is_secret")
+
 
 class UserAchievementSerializer(serializers.ModelSerializer):
     achievement = AchievementSerializer()
@@ -81,7 +83,13 @@ class UserSerializer(serializers.ModelSerializer):
             "passed_tests_count",
             "user_achievements",
         )
-        read_only_fields = ("id", "username", "email", "passed_tests_count", "achievements")
+        read_only_fields = (
+            "id",
+            "username",
+            "email",
+            "passed_tests_count",
+            "achievements",
+        )
 
     def get_passed_tests_count(self, obj):
         return (

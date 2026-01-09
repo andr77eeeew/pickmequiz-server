@@ -203,16 +203,14 @@ class QuizCRUDTests(APITestCase):
         self.client.post(self.url_list, self.quiz_data, format="json")
 
         quiz = Quiz.objects.create(
-            title="Quiz",
-            creator=self.author,
-            description="Test Your Skills"
+            title="Quiz", creator=self.author, description="Test Your Skills"
         )
 
         question = Question.objects.create(
             quiz=quiz,
             title="Q1",
             order=1,
-            answer_type="single" # Убедись, что используешь правильный тип
+            answer_type="single",  # Убедись, что используешь правильный тип
         )
 
         attempt = QuizAttempt.objects.create(quiz=quiz, user=self.author)

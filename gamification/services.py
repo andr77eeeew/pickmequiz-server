@@ -1,15 +1,14 @@
+import logging
+
 from .models import Achievement, UserAchievement
 from .rules import ACHIEVEMENT_RULES
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 def check_new_achievements(user, attempt):
     exist_user_achievements = UserAchievement.objects.filter(user=user)
-    exist_achievement_codes = set(
-        ua.achievement.code for ua in exist_user_achievements
-    )
+    exist_achievement_codes = set(ua.achievement.code for ua in exist_user_achievements)
     new_achievements = []
 
     for code, rule_func in ACHIEVEMENT_RULES.items():

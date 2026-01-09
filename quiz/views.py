@@ -4,6 +4,7 @@ from django.db.models import Count, QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from environs import ValidationError
+from gamification.services import check_new_achievements
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
@@ -11,7 +12,6 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from gamification.services import check_new_achievements
 from .models import Quiz, QuizAttempt
 from .permissions import IsCreator
 from .serializers import (
