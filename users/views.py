@@ -190,7 +190,7 @@ class UserProfileAPIView(APIView):
     )
     def get(self, request: Request) -> Response:
         user = User.objects.prefetch_related("favourite_tests", "quiz_attempts").get(
-            user=request.user
+            pk=request.user.pk
         )
         serializer = UserSerializer(user, context={"request": request})
         logger.info(f"Retrieved profile for user: {request.user}")
