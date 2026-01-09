@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from gamification.services import check_new_achievements
 from .models import Quiz, QuizAttempt
 from .permissions import IsCreator
 from .serializers import (
@@ -179,5 +180,11 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
         except ValidationError as e:
             logger.error(f"Error submitting attempt ID: {attempt.id} - {str(e)}")
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
+        try:
+            logger.info(f"Checking achievements for user ID: {request.user.id}")
+            check_new_achievements(user=request.user, attempt=attempt)
+        except Exception as e:
+            logger.error(
+                f"Error checking achievements for user ID: {request.user.id} - {str(e)}"
+            )
         return Response(serializer.data)
