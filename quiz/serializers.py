@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Any, Dict
 
 from django.db import transaction
@@ -264,9 +265,16 @@ class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
                     question_id=q_id,
                 )
                 user_answers_to_create.append((user_answer, selected_ids))
-
-            instance.score = total_score
-            instance.completed_at = timezone.now()
+            if instance.quiz.is_time_limited:
+                if timezone.now() - instance.started_at >= instance.quiz.time_limit + timedelta(seconds=10):
+                    instance.score = 0.0
+                    instance.completed_at = timezone.now()
+                else:
+                    instance.score = total_score
+                    instance.completed_at = timezone.now()
+            else:
+                instance.score = total_score
+                instance.completed_at = timezone.now()
             instance.save()
 
             created_answers = UserAnswer.objects.bulk_create(
