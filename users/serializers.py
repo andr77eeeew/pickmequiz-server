@@ -67,7 +67,9 @@ class UserAchievementSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     favourite_tests = FavouriteSerializer(many=True)
     passed_tests_count = serializers.SerializerMethodField()
-    user_achievements = UserAchievementSerializer(many=True, read_only=True, source="achievements")
+    user_achievements = UserAchievementSerializer(
+        many=True, read_only=True, source="achievements"
+    )
 
     class Meta:
         model = User

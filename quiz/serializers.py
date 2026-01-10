@@ -266,7 +266,10 @@ class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
                 )
                 user_answers_to_create.append((user_answer, selected_ids))
             if instance.quiz.is_time_limited:
-                if timezone.now() - instance.started_at >= instance.quiz.time_limit + timedelta(seconds=10):
+                if (
+                    timezone.now() - instance.started_at
+                    >= instance.quiz.time_limit + timedelta(seconds=10)
+                ):
                     instance.score = 0.0
                     instance.completed_at = timezone.now()
                 else:
