@@ -284,3 +284,17 @@ LOGGING = {
         "level": "INFO",
     },
 }
+
+# CELERY SETTINGS
+CELERY_BROKER_URL = env.str("CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672//")
+CELERY_RESULT_BACKEND = env.str("CELERY_RESULT_BACKEND", "rpc://")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "expire_old_attempts": {
+        "task": "quiz.tasks.check_expired_attempts",
+        "schedule": 60.0,
+    }
+}
