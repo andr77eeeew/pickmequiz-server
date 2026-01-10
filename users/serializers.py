@@ -83,14 +83,14 @@ class UserSerializer(serializers.ModelSerializer):
             "about",
             "favourite_tests",
             "passed_tests_count",
-            "ч",
+            "user_achievements",
         )
         read_only_fields = (
             "id",
             "username",
             "email",
             "passed_tests_count",
-            "achievements",
+            "user_achievements",
         )
 
     def get_passed_tests_count(self, obj):
