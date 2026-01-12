@@ -2,7 +2,7 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
-from django.db.models import Count, Avg, F
+from django.db.models import Avg, Count, F
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiTypes,
@@ -18,7 +18,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from quiz.models import QuizAttempt, Quiz
+from quiz.models import QuizAttempt
 from users.serializers import (
     LeaderboardUserSerializer,
     LoginSerializer,
@@ -294,26 +294,26 @@ class LeaderboardAPIView(APIView):
 
         if ordering not in self.ORDERING_FIELDS:
             ordering = "total_score"
-        best_attempts_ids = (QuizAttempt.objects.filter(
-            completed_at__isnull=False
+        best_attempts_ids = (
+            QuizAttempt.objects.filter(completed_at__isnull=False)
+            .order_by("user_id", "quiz_id", "-score")
+            .distinct("user_id", "quiz_id")
+            .values_list("id", flat=True)
         )
-                             .order_by('user_id', 'quiz_id', '-score')
-                             .distinct('user_id', 'quiz_id')
-                             .values_list('id', flat=True))
         top_users = (
             QuizAttempt.objects.filter(id__in=best_attempts_ids)
-            .values('user')
+            .values("user")
             .annotate(
-                username=F('user__username'),
-                total_score=Avg('score'),
-                tests_passed=Count('quiz', distinct=True),
-                average_time=Avg(F('completed_at') - F('started_at'))
+                username=F("user__username"),
+                total_score=Avg("score"),
+                tests_passed=Count("quiz", distinct=True),
+                average_time=Avg(F("completed_at") - F("started_at")),
             )
         )
 
         if ordering == "average_time":
-            top_users = top_users.order_by(f'{ordering}', '-total_score')[:10]
+            top_users = top_users.order_by(f"{ordering}", "-total_score")[:10]
         else:
-            top_users = top_users.order_by(f'-{ordering}', 'average_time')[:10]
+            top_users = top_users.order_by(f"-{ordering}", "average_time")[:10]
         serializer = LeaderboardUserSerializer(top_users, many=True)
         return Response(serializer.data)

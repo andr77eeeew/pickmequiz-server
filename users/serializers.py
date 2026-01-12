@@ -67,9 +67,7 @@ class UserAchievementSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     favourite_tests = FavouriteSerializer(many=True)
     passed_tests_count = serializers.SerializerMethodField()
-    achievements = UserAchievementSerializer(
-        many=True, read_only=True
-    )
+    achievements = UserAchievementSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -109,4 +107,11 @@ class LeaderboardUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "avatar", "total_score", "tests_passed", "average_time"]
+        fields = [
+            "id",
+            "username",
+            "avatar",
+            "total_score",
+            "tests_passed",
+            "average_time",
+        ]

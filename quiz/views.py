@@ -92,12 +92,14 @@ class QuizViewSet(viewsets.ModelViewSet):
         if user.favourite_tests.filter(pk=pk).exists():
             user.favourite_tests.remove(quiz)
             return Response(
-                {"is_favorite": user.favourite_tests.filter(pk=pk).exists()}, status=status.HTTP_200_OK
+                {"is_favorite": user.favourite_tests.filter(pk=pk).exists()},
+                status=status.HTTP_200_OK,
             )
         else:
             user.favourite_tests.add(quiz)
             return Response(
-                {"is_favorite": user.favourite_tests.filter(pk=pk).exists()}, status=status.HTTP_200_OK
+                {"is_favorite": user.favourite_tests.filter(pk=pk).exists()},
+                status=status.HTTP_200_OK,
             )
 
 
