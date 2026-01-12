@@ -1,4 +1,5 @@
 import random
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
@@ -93,6 +94,7 @@ class Command(BaseCommand):
                         user=user,
                         quiz=quiz,
                         score=random_score,
+                        started_at=timezone.now() - timedelta(minutes=random.randint(5, 30)),
                         completed_at=timezone.now(),
                     )
 
