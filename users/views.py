@@ -2,8 +2,7 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
-from django.db.models import Count, FloatField
-from django.db.models.expressions import RawSQL
+from django.db.models import Count, Avg, F
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiTypes,
@@ -19,6 +18,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from quiz.models import QuizAttempt, Quiz
 from users.serializers import (
     LeaderboardUserSerializer,
     LoginSerializer,
@@ -290,33 +290,30 @@ class LeaderboardAPIView(APIView):
         ],
     )
     def get(self, request: Request, *args, **kwargs) -> Response:
-        ordering = request.query_params.get("ordering", "total_score")
+        ordering = request.query_params.get("ordering", "total_score", "average_time")
 
         if ordering not in self.ORDERING_FIELDS:
             ordering = "total_score"
-
-        total_unique_score = """
-            SELECT COALESCE(SUM(max_score), 0)
-            FROM (
-                SELECT MAX(score) as max_score
-                FROM quiz_attempt
-                WHERE quiz_attempt.user_id = users_user.id
-                    AND quiz_attempt.completed_at IS NOT NULL
-                GROUP BY quiz_attempt.quiz_id
-                ) AS distinct_attempts
-        """
-
-        top_users = (
-            User.objects.filter(quiz_attempts__completed_at__isnull=False)
-            .distinct()
-            .annotate(
-                total_score=RawSQL(
-                    total_unique_score, params=(), output_field=FloatField()
-                ),
-                tests_passed=Count("quiz_attempts__quiz", distinct=True),
+            best_attempts_ids = (QuizAttempt.objects.filter(
+                completed_at__isnull=False
             )
-            .order_by(f"-{ordering}")[:10]
+                                 .order_by('user_id', 'quiz_id', '-score')
+                                 .distinct('user_id', 'quiz_id')
+                                 .values_list('id', flat=True))
+        top_users = (
+            QuizAttempt.objects.filter(id__in=best_attempts_ids)
+            .values('user')
+            .annotate(
+                username=F('user__username'),
+                total_score=Avg('score'),
+                tests_passed=Count('quiz', distinct=True),
+                average_time=Avg(F('completed_at') - F('started_at'))
+            )[:10]
         )
 
+        if ordering == "average_time":
+            top_users = top_users.order_by(f'{ordering}', '-total_score')
+        else:
+            top_users = top_users.order_by(f'-{ordering}', 'average_time')
         serializer = LeaderboardUserSerializer(top_users, many=True)
         return Response(serializer.data)

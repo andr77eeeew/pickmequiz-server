@@ -53,7 +53,7 @@ class FavouriteSerializer(serializers.ModelSerializer):
 class AchievementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Achievement
-        fields = ("title", "description", "icon", "is_secret")
+        fields = ("title", "description", "icon", "code")
 
 
 class UserAchievementSerializer(serializers.ModelSerializer):
@@ -67,8 +67,8 @@ class UserAchievementSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     favourite_tests = FavouriteSerializer(many=True)
     passed_tests_count = serializers.SerializerMethodField()
-    user_achievements = UserAchievementSerializer(
-        many=True, read_only=True, source="achievements"
+    achievements = UserAchievementSerializer(
+        many=True, read_only=True
     )
 
     class Meta:
@@ -83,14 +83,14 @@ class UserSerializer(serializers.ModelSerializer):
             "about",
             "favourite_tests",
             "passed_tests_count",
-            "user_achievements",
+            "achievements",
         )
         read_only_fields = (
             "id",
             "username",
             "email",
             "passed_tests_count",
-            "user_achievements",
+            "achievements",
         )
 
     def get_passed_tests_count(self, obj):
@@ -105,7 +105,8 @@ class UserSerializer(serializers.ModelSerializer):
 class LeaderboardUserSerializer(serializers.ModelSerializer):
     total_score = serializers.FloatField(read_only=True)
     tests_passed = serializers.IntegerField(read_only=True)
+    average_time = serializers.DurationField(read_only=True)
 
     class Meta:
         model = User
-        fields = ["id", "username", "avatar", "total_score", "tests_passed"]
+        fields = ["id", "username", "avatar", "total_score", "tests_passed", "average_time"]
