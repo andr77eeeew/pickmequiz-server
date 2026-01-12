@@ -290,16 +290,16 @@ class LeaderboardAPIView(APIView):
         ],
     )
     def get(self, request: Request, *args, **kwargs) -> Response:
-        ordering = request.query_params.get("ordering", "total_score", "average_time")
+        ordering = request.query_params.get("ordering", "total_score")
 
         if ordering not in self.ORDERING_FIELDS:
             ordering = "total_score"
-            best_attempts_ids = (QuizAttempt.objects.filter(
-                completed_at__isnull=False
-            )
-                                 .order_by('user_id', 'quiz_id', '-score')
-                                 .distinct('user_id', 'quiz_id')
-                                 .values_list('id', flat=True))
+        best_attempts_ids = (QuizAttempt.objects.filter(
+            completed_at__isnull=False
+        )
+                             .order_by('user_id', 'quiz_id', '-score')
+                             .distinct('user_id', 'quiz_id')
+                             .values_list('id', flat=True))
         top_users = (
             QuizAttempt.objects.filter(id__in=best_attempts_ids)
             .values('user')
@@ -308,12 +308,12 @@ class LeaderboardAPIView(APIView):
                 total_score=Avg('score'),
                 tests_passed=Count('quiz', distinct=True),
                 average_time=Avg(F('completed_at') - F('started_at'))
-            )[:10]
+            )
         )
 
         if ordering == "average_time":
-            top_users = top_users.order_by(f'{ordering}', '-total_score')
+            top_users = top_users.order_by(f'{ordering}', '-total_score')[:10]
         else:
-            top_users = top_users.order_by(f'-{ordering}', 'average_time')
+            top_users = top_users.order_by(f'-{ordering}', 'average_time')[:10]
         serializer = LeaderboardUserSerializer(top_users, many=True)
         return Response(serializer.data)
