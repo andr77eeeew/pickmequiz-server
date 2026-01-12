@@ -94,7 +94,7 @@ class Command(BaseCommand):
                         user=user,
                         quiz=quiz,
                         score=random_score,
-                        started_at=timezone.now() - timedelta(minutes=random.randint(5, 30)),
+                        started_at=timezone.now() - timedelta(minutes=random.randint(20, 30)),
                         completed_at=timezone.now(),
                     )
 
