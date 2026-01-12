@@ -85,19 +85,19 @@ class QuizViewSet(viewsets.ModelViewSet):
         return queryset
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
-    def add_or_remove_favorite(self, request: Request, pk=None) -> Response:
+    def favorite(self, request: Request, pk=None) -> Response:
         quiz = self.get_object()
         user = request.user
 
-        if user.favourite_tests.filter(quiz_id=pk).exists():
+        if user.favourite_tests.filter(pk=pk).exists():
             user.favourite_tests.remove(quiz)
             return Response(
-                {"detail": "Quiz removed from favorites."}, status=status.HTTP_200_OK
+                {"is_favorite": user.favourite_tests.filter(pk=pk).exists()}, status=status.HTTP_200_OK
             )
         else:
             user.favourite_tests.add(quiz)
             return Response(
-                {"detail": "Quiz added to favorites."}, status=status.HTTP_200_OK
+                {"is_favorite": user.favourite_tests.filter(pk=pk).exists()}, status=status.HTTP_200_OK
             )
 
 
