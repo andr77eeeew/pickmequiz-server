@@ -14,8 +14,7 @@ def check_expired_attempts():
         quiz__is_time_limited=True,
     ).select_related("quiz")
     for attempt in expired_attempts:
-        time_limit = attempt.quiz.time_limit
-        if now - attempt.started_at >= time_limit + timedelta(seconds=10):
+        if attempt.is_expired():
             attempt.score = 0.0
             attempt.completed_at = now
             attempt.save()
