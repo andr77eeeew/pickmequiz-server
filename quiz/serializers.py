@@ -7,7 +7,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from .models import AnswerOption, Question, Quiz, QuizAttempt, UserAnswer
-from .services import update_quiz_full
+from .services import update_quiz_full, submit_attempt
 
 
 class AnswerOptionSerializer(serializers.ModelSerializer):
@@ -236,55 +236,6 @@ class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data: Dict[str, Any]) -> QuizAttempt:
         answers_data = validated_data.pop("answers")
 
-        question_score = instance.quiz.get_question_score()
-
-        correct_answers_map = {}
-
-        questions = instance.quiz.questions.prefetch_related("answer_options")
-
-        for q in questions:
-            correct_opts = set(
-                opt.id for opt in q.answer_options.all() if opt.is_correct
-            )
-            correct_answers_map[q.id] = correct_opts
-
-        total_score = 0.0
-        user_answers_to_create = []
-        with transaction.atomic():
-            for answer_data in answers_data:
-                q_id = answer_data["question_id"]
-                selected_ids = set(answer_data["selected_options"])
-
-                correct_ids = correct_answers_map.get(q_id, set())
-
-                if selected_ids == correct_ids and correct_ids:
-                    total_score += question_score
-
-                user_answer = UserAnswer(
-                    attempt=instance,
-                    question_id=q_id,
-                )
-                user_answers_to_create.append((user_answer, selected_ids))
-            if instance.quiz.is_time_limited:
-                if (
-                    timezone.now() - instance.started_at
-                    >= instance.quiz.time_limit + timedelta(seconds=10)
-                ):
-                    instance.score = 0.0
-                    instance.completed_at = timezone.now()
-                else:
-                    instance.score = total_score
-                    instance.completed_at = timezone.now()
-            else:
-                instance.score = total_score
-                instance.completed_at = timezone.now()
-            instance.save()
-
-            created_answers = UserAnswer.objects.bulk_create(
-                [x[0] for x in user_answers_to_create]
-            )
-
-            for ua, ids in zip(created_answers, [x[1] for x in user_answers_to_create]):
-                ua.selected_options.set(ids)
+        submit_attempt(instance, answers_data)
 
         return instance
