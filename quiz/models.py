@@ -1,7 +1,10 @@
 import os
+from datetime import timedelta
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
+
 
 # Create your models here.
 
@@ -136,6 +139,12 @@ class QuizAttempt(models.Model):
 
     def __str__(self):
         return f"Attempt by {self.user.username} for Quiz {self.quiz.title}"
+
+    def is_expired(self):
+        if not self.quiz.is_time_limited or not self.started_at:
+            return False
+        time_elapsed = timezone.now() - self.started_at
+        return time_elapsed > self.quiz.time_limit + timedelta(seconds=10)
 
 
 class UserAnswer(models.Model):
