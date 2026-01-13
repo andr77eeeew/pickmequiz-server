@@ -40,6 +40,7 @@ def _update_answer_options(question, options_data):
             id=opt_id, question=question, defaults=opt_data
         )
 
+
 def submit_attempt(quiz_attempt, user_answers_data):
     user_answers_to_create = []
     with transaction.atomic():
@@ -77,9 +78,7 @@ def _calculate_score(quiz_attempt, user_answers_data):
     questions = quiz_attempt.quiz.questions.prefetch_related("answer_options")
 
     for q in questions:
-        correct_opts = set(
-            opt.id for opt in q.answer_options.all() if opt.is_correct
-        )
+        correct_opts = set(opt.id for opt in q.answer_options.all() if opt.is_correct)
         correct_answers_map[q.id] = correct_opts
 
     total_score = 0.0

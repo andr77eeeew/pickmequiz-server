@@ -1,13 +1,11 @@
-from datetime import timedelta
 from typing import Any, Dict
 
 from django.db import transaction
-from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from .models import AnswerOption, Question, Quiz, QuizAttempt, UserAnswer
-from .services import update_quiz_full, submit_attempt
+from .models import AnswerOption, Question, Quiz, QuizAttempt
+from .services import submit_attempt, update_quiz_full
 
 
 class AnswerOptionSerializer(serializers.ModelSerializer):
