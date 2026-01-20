@@ -6,7 +6,6 @@ from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from environs import ValidationError
-
 from gamification.services import check_new_achievements
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -15,13 +14,15 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from .models import Quiz, QuizAttempt, UserAnswer, AnswerOption
+from .models import AnswerOption, Quiz, QuizAttempt, UserAnswer
 from .permissions import IsCreator
 from .serializers import (
+    QuestionPublicSerializer,
     QuizAttemptStartSerializer,
     QuizAttemptSubmitSerializer,
     QuizDetailSerializer,
-    QuizListSerializer, StepByStepAnswerSerializer, QuestionPublicSerializer,
+    QuizListSerializer,
+    StepByStepAnswerSerializer,
 )
 from .services import _calculate_score
 
@@ -207,7 +208,7 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
         if attempt.completed_at is not None:
             return Response(
                 {"detail": "This attempt is completed"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         serializer = StepByStepAnswerSerializer(data=request.data)
@@ -215,28 +216,28 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
 
         answer_data = serializer.validated_data
 
-        if attempt.quiz.questions.filter(id=answer_data["question_id"]).exists() is False:
+        if (
+            attempt.quiz.questions.filter(id=answer_data["question_id"]).exists()
+            is False
+        ):
             return Response(
                 {"detail": "Question does not belong to this quiz."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        if attempt.user_answers.filter(
-            question_id=answer_data["question_id"]
-        ).exists():
+        if attempt.user_answers.filter(question_id=answer_data["question_id"]).exists():
             return Response(
                 {"detail": "This question has already been answered."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
         with transaction.atomic():
             correct_set = set(
                 AnswerOption.objects.filter(
-                    question_id=answer_data["question_id"],
-                    is_correct=True
-                ).values_list('id', flat=True)
+                    question_id=answer_data["question_id"], is_correct=True
+                ).values_list("id", flat=True)
             )
             user_set = set(answer_data["selected_options"])
 
-            is_correct = (user_set == correct_set)
+            is_correct = user_set == correct_set
 
             user_answer = UserAnswer.objects.create(
                 attempt=attempt,
@@ -244,8 +245,12 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
             )
             user_answer.selected_options.set(user_set)
 
-        all_questions_ids = attempt.quiz.questions.values_list("id", flat=True).order_by("order")
-        answered_questions_ids = set(attempt.user_answers.values_list("question_id", flat=True))
+        all_questions_ids = attempt.quiz.questions.values_list(
+            "id", flat=True
+        ).order_by("order")
+        answered_questions_ids = set(
+            attempt.user_answers.values_list("question_id", flat=True)
+        )
         next_question_data = None
         for q_id in all_questions_ids:
             if q_id not in answered_questions_ids:
@@ -257,9 +262,9 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
             {
                 "is_correct": is_correct,
                 "correct_options": list(correct_set),
-                "next_question": next_question_data
+                "next_question": next_question_data,
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
     @action(detail=True, methods=["post"], url_path="finish", url_name="finish")
@@ -285,14 +290,6 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
         attempt.save()
 
         return Response(
-            {
-                "detail": "Attempt finished successfully.",
-                "score": final_score
-            },
+            {"detail": "Attempt finished successfully.", "score": final_score},
             status=status.HTTP_200_OK,
         )
-
-
-
-
-

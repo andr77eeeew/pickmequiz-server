@@ -14,6 +14,7 @@ class AnswerOptionSerializer(serializers.ModelSerializer):
         model = AnswerOption
         fields = ["id", "text", "is_correct"]
 
+
 class AnswerPublicOptionSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -34,6 +35,7 @@ class QuestionPublicSerializer(serializers.ModelSerializer):
             "question_photo",
             "answer_options",
         ]
+
 
 class QuestionSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
@@ -174,11 +176,13 @@ class UserAnswerInputSerializer(serializers.Serializer):
         child=serializers.IntegerField(), allow_empty=False
     )
 
+
 class StepByStepAnswerSerializer(serializers.Serializer):
     question_id = serializers.IntegerField()
     selected_options = serializers.ListField(
         child=serializers.IntegerField(), allow_empty=False
     )
+
 
 class QuizAttemptStartSerializer(serializers.ModelSerializer):
     first_question = serializers.SerializerMethodField()
@@ -193,6 +197,7 @@ class QuizAttemptStartSerializer(serializers.ModelSerializer):
         if first_question:
             return QuestionPublicSerializer(first_question).data
         return None
+
 
 class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
     answers = UserAnswerInputSerializer(many=True, write_only=True)

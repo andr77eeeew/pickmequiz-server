@@ -13,7 +13,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from quiz.models import Question, Quiz, QuizAttempt, UserAnswer, AnswerOption
+from quiz.models import AnswerOption, Question, Quiz, QuizAttempt, UserAnswer
 
 User = get_user_model()
 
@@ -22,7 +22,6 @@ MEDIA_ROOT = tempfile.mkdtemp()
 
 class QuizCRUDTests(APITestCase):
     def setUp(self):
-
 
         self.url_list = reverse("quiz:quiz-list")
 
@@ -40,6 +39,7 @@ class QuizCRUDTests(APITestCase):
                 }
             ],
         }
+
     @classmethod
     def setUpTestData(cls):
         cls.author = User.objects.create_user(
@@ -53,14 +53,11 @@ class QuizCRUDTests(APITestCase):
             title="Short Quiz",
             description="Test",
             time_limit=timedelta(minutes=10),
-            creator=cls.author
+            creator=cls.author,
         )
 
         cls.question = Question.objects.create(
-            quiz=cls.quiz,
-            title="Last Question",
-            order=1,
-            answer_type="single"
+            quiz=cls.quiz, title="Last Question", order=1, answer_type="single"
         )
 
         cls.option_correct = AnswerOption.objects.create(
@@ -72,9 +69,7 @@ class QuizCRUDTests(APITestCase):
 
         # Создаем попытку
         cls.attempt = QuizAttempt.objects.create(
-            quiz=cls.quiz,
-            user=cls.author,
-            started_at=timezone.now()
+            quiz=cls.quiz, user=cls.author, started_at=timezone.now()
         )
 
     def generate_photo_file(self, name="test_image.jpg"):
@@ -454,10 +449,7 @@ class QuizCRUDTests(APITestCase):
 
         url = reverse("quiz:quiz-attempt-answer", kwargs={"pk": attempt.pk})
 
-        step_data = {
-            "question_id": question.id,
-            "selected_options": [option.id]
-        }
+        step_data = {"question_id": question.id, "selected_options": [option.id]}
 
         response = self.client.post(url, step_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -475,10 +467,7 @@ class QuizCRUDTests(APITestCase):
 
         url = reverse("quiz:quiz-attempt-answer", kwargs={"pk": attempt.pk})
 
-        step_data = {
-            "question_id": question.id,
-            "selected_options": [wrong_option_id]
-        }
+        step_data = {"question_id": question.id, "selected_options": [wrong_option_id]}
 
         response = self.client.post(url, step_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -501,34 +490,27 @@ class QuizCRUDTests(APITestCase):
 
         url = reverse("quiz:quiz-attempt-answer", kwargs={"pk": attempt.pk})
 
-        step_data = {
-            "question_id": question.id,
-            "selected_options": [option.id]
-        }
+        step_data = {"question_id": question.id, "selected_options": [option.id]}
 
-        response = self.client.post(url, step_data, format='json')
+        response = self.client.post(url, step_data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["is_correct"])
         self.assertIsNone(response.data["next_question"])
 
         self.assertTrue(
-            UserAnswer.objects.filter(
-                attempt=attempt,
-                question=question
-            ).exists()
+            UserAnswer.objects.filter(attempt=attempt, question=question).exists()
         )
 
     def test_finish_attempt_success(self):
         self.authenticate_user(self.author)
         user_answer = UserAnswer.objects.create(
-            attempt=self.attempt,
-            question=self.question
+            attempt=self.attempt, question=self.question
         )
         user_answer.selected_options.set([self.option_correct.id])
 
         url = reverse("quiz:quiz-attempt-finish", kwargs={"pk": self.attempt.pk})
-        response = self.client.post(url, format='json')
+        response = self.client.post(url, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.attempt.refresh_from_db()
         self.assertIsNotNone(self.attempt.completed_at)
