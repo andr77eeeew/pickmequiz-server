@@ -1,9 +1,12 @@
 import logging
 
+from django.db import transaction
 from django.db.models import Count, QuerySet
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from environs import ValidationError
+
 from gamification.services import check_new_achievements
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -12,14 +15,15 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from .models import Quiz, QuizAttempt
+from .models import Quiz, QuizAttempt, UserAnswer, AnswerOption
 from .permissions import IsCreator
 from .serializers import (
     QuizAttemptStartSerializer,
     QuizAttemptSubmitSerializer,
     QuizDetailSerializer,
-    QuizListSerializer,
+    QuizListSerializer, StepByStepAnswerSerializer, QuestionPublicSerializer,
 )
+from .services import _calculate_score
 
 logger = logging.getLogger(__name__)
 
@@ -151,11 +155,17 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
 
         quiz_serializer = QuizDetailSerializer(attempt.quiz)
 
+        first_question = attempt.quiz.questions.order_by("order").first()
+        first_question_data = None
+        if first_question:
+            first_question_data = QuestionPublicSerializer(first_question).data
+
         return Response(
             {
                 "attempt_id": attempt.id,
                 "quiz": quiz_serializer.data,
                 "started_at": attempt.started_at,
+                "first_question": first_question_data,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -190,3 +200,99 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
                 f"Error checking achievements for user ID: {request.user.id} - {str(e)}"
             )
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="answer", url_name="answer")
+    def submit_single_answer(self, request: Request, pk=None) -> Response:
+        attempt = self.get_object()
+        if attempt.completed_at is not None:
+            return Response(
+                {"detail": "This attempt is completed"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = StepByStepAnswerSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        answer_data = serializer.validated_data
+
+        if attempt.quiz.questions.filter(id=answer_data["question_id"]).exists() is False:
+            return Response(
+                {"detail": "Question does not belong to this quiz."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if attempt.user_answers.filter(
+            question_id=answer_data["question_id"]
+        ).exists():
+            return Response(
+                {"detail": "This question has already been answered."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        with transaction.atomic():
+            correct_set = set(
+                AnswerOption.objects.filter(
+                    question_id=answer_data["question_id"],
+                    is_correct=True
+                ).values_list('id', flat=True)
+            )
+            user_set = set(answer_data["selected_options"])
+
+            is_correct = (user_set == correct_set)
+
+            user_answer = UserAnswer.objects.create(
+                attempt=attempt,
+                question_id=answer_data["question_id"],
+            )
+            user_answer.selected_options.set(user_set)
+
+        all_questions_ids = attempt.quiz.questions.values_list("id", flat=True).order_by("order")
+        answered_questions_ids = set(attempt.user_answers.values_list("question_id", flat=True))
+        next_question_data = None
+        for q_id in all_questions_ids:
+            if q_id not in answered_questions_ids:
+                next_question = attempt.quiz.questions.get(id=q_id)
+                next_question_data = QuestionPublicSerializer(next_question).data
+                break
+
+        return Response(
+            {
+                "is_correct": is_correct,
+                "correct_options": list(correct_set),
+                "next_question": next_question_data
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=["post"], url_path="finish", url_name="finish")
+    def finish_attempt(self, request: Request, pk=None) -> Response:
+        attempt = self.get_object()
+        if attempt.completed_at is not None:
+            return Response(
+                {"detail": "This attempt has already been completed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user_answer_db = attempt.user_answers.prefetch_related("selected_options")
+        answer_data = []
+        for ua in user_answer_db:
+            answer_data.append(
+                {
+                    "question_id": ua.question_id,
+                    "selected_options": [opt.id for opt in ua.selected_options.all()],
+                }
+            )
+        final_score = _calculate_score(attempt, answer_data)
+        attempt.score = final_score
+        attempt.completed_at = timezone.now()
+        attempt.save()
+
+        return Response(
+            {
+                "detail": "Attempt finished successfully.",
+                "score": final_score
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+
+
+

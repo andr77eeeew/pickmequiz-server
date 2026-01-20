@@ -14,6 +14,26 @@ class AnswerOptionSerializer(serializers.ModelSerializer):
         model = AnswerOption
         fields = ["id", "text", "is_correct"]
 
+class AnswerPublicOptionSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = AnswerOption
+        fields = ["id", "text"]
+
+
+class QuestionPublicSerializer(serializers.ModelSerializer):
+    answer_options = AnswerPublicOptionSerializer(many=True)
+
+    class Meta:
+        model = Question
+        fields = [
+            "id",
+            "title",
+            "order",
+            "answer_type",
+            "question_photo",
+            "answer_options",
+        ]
 
 class QuestionSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
@@ -154,14 +174,25 @@ class UserAnswerInputSerializer(serializers.Serializer):
         child=serializers.IntegerField(), allow_empty=False
     )
 
+class StepByStepAnswerSerializer(serializers.Serializer):
+    question_id = serializers.IntegerField()
+    selected_options = serializers.ListField(
+        child=serializers.IntegerField(), allow_empty=False
+    )
 
 class QuizAttemptStartSerializer(serializers.ModelSerializer):
+    first_question = serializers.SerializerMethodField()
 
     class Meta:
         model = QuizAttempt
-        fields = ["id", "quiz", "user", "started_at"]
+        fields = ["id", "quiz", "user", "started_at", "first_question"]
         read_only_fields = ["id", "user", "started_at"]
 
+    def get_first_question(self, obj):
+        first_question = obj.quiz.questions.order_by("order").first()
+        if first_question:
+            return QuestionPublicSerializer(first_question).data
+        return None
 
 class QuizAttemptSubmitSerializer(serializers.ModelSerializer):
     answers = UserAnswerInputSerializer(many=True, write_only=True)
