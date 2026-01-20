@@ -1,17 +1,19 @@
 import shutil
 import tempfile
+from datetime import timedelta
 from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.http import urlencode
 from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from quiz.models import Question, Quiz, QuizAttempt
+from quiz.models import Question, Quiz, QuizAttempt, UserAnswer, AnswerOption
 
 User = get_user_model()
 
@@ -20,12 +22,7 @@ MEDIA_ROOT = tempfile.mkdtemp()
 
 class QuizCRUDTests(APITestCase):
     def setUp(self):
-        self.author = User.objects.create_user(
-            username="author", email="author@test.com", password="password"
-        )
-        self.other_user = User.objects.create_user(
-            username="other", email="other@test.com", password="password"
-        )
+
 
         self.url_list = reverse("quiz:quiz-list")
 
@@ -43,6 +40,42 @@ class QuizCRUDTests(APITestCase):
                 }
             ],
         }
+    @classmethod
+    def setUpTestData(cls):
+        cls.author = User.objects.create_user(
+            username="author", email="author@test.com", password="password"
+        )
+        cls.other_user = User.objects.create_user(
+            username="other", email="other@test.com", password="password"
+        )
+
+        cls.quiz = Quiz.objects.create(
+            title="Short Quiz",
+            description="Test",
+            time_limit=timedelta(minutes=10),
+            creator=cls.author
+        )
+
+        cls.question = Question.objects.create(
+            quiz=cls.quiz,
+            title="Last Question",
+            order=1,
+            answer_type="single"
+        )
+
+        cls.option_correct = AnswerOption.objects.create(
+            question=cls.question, text="Yes", is_correct=True
+        )
+        cls.option_wrong = AnswerOption.objects.create(
+            question=cls.question, text="No", is_correct=False
+        )
+
+        # Создаем попытку
+        cls.attempt = QuizAttempt.objects.create(
+            quiz=cls.quiz,
+            user=cls.author,
+            started_at=timezone.now()
+        )
 
     def generate_photo_file(self, name="test_image.jpg"):
         file_obj = BytesIO()
@@ -66,8 +99,9 @@ class QuizCRUDTests(APITestCase):
         self.authenticate_user(self.author)
         response = self.client.post(self.url_list, self.quiz_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Quiz.objects.count(), 1)
-        self.assertEqual(Quiz.objects.get().creator, self.author)
+        self.assertEqual(Quiz.objects.count(), 2)
+        created_quiz = Quiz.objects.get(pk=response.data["id"])
+        self.assertEqual(created_quiz.creator, self.author)
 
     def test_create_quiz_unauthenticated(self):
         self.client.logout()
@@ -101,12 +135,12 @@ class QuizCRUDTests(APITestCase):
         self.authenticate_user(self.other_user)
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(Quiz.objects.count(), 1)
+        self.assertEqual(Quiz.objects.count(), 2)
 
         self.authenticate_user(self.author)
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(Quiz.objects.count(), 0)
+        self.assertEqual(Quiz.objects.count(), 1)
 
     def test_list_optimization(self):
         Quiz.objects.create(title="Q1", creator=self.author, description="Desc")
@@ -389,3 +423,113 @@ class QuizCRUDTests(APITestCase):
         self.assertTrue(question.question_photo)
 
         self.assertTrue(expected_path, question.question_photo.name)
+
+    def test_start_step_by_step_attempt(self):
+        self.authenticate_user(user=self.author)
+        create_response = self.client.post(self.url_list, self.quiz_data, format="json")
+
+        quiz_id = create_response.data["id"]
+
+        url = reverse("quiz:quiz-attempt-list")
+
+        quiz_attempt = {"quiz": quiz_id}
+
+        response = self.client.post(url, quiz_attempt, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["first_question"]["order"], 1)
+
+    def test_step_by_step_submit_correct_answer(self):
+        self.authenticate_user(user=self.author)
+
+        response_create = self.client.post(self.url_list, self.quiz_data, format="json")
+
+        quiz_id = response_create.data["id"]
+
+        quiz = Quiz.objects.get(pk=quiz_id)
+
+        attempt = QuizAttempt.objects.create(quiz=quiz, user=self.author)
+
+        question = quiz.questions.first()
+        option = question.answer_options.first()
+
+        url = reverse("quiz:quiz-attempt-answer", kwargs={"pk": attempt.pk})
+
+        step_data = {
+            "question_id": question.id,
+            "selected_options": [option.id]
+        }
+
+        response = self.client.post(url, step_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["is_correct"], True)
+        self.assertIn("next_question", response.data)
+
+    def test_step_by_step_submit_incorrect_answer(self):
+        self.authenticate_user(user=self.author)
+
+        attempt = self.attempt
+
+        question = self.question
+
+        wrong_option_id = self.option_wrong.id
+
+        url = reverse("quiz:quiz-attempt-answer", kwargs={"pk": attempt.pk})
+
+        step_data = {
+            "question_id": question.id,
+            "selected_options": [wrong_option_id]
+        }
+
+        response = self.client.post(url, step_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["is_correct"], False)
+        self.assertIn("next_question", response.data)
+
+    def test_answer_last_question_returns_null_next(self):
+        self.authenticate_user(self.author)
+
+        response_create = self.client.post(self.url_list, self.quiz_data, format="json")
+
+        quiz_id = response_create.data["id"]
+
+        quiz = Quiz.objects.get(pk=quiz_id)
+
+        attempt = QuizAttempt.objects.create(quiz=quiz, user=self.author)
+
+        question = quiz.questions.first()
+        option = question.answer_options.first()
+
+        url = reverse("quiz:quiz-attempt-answer", kwargs={"pk": attempt.pk})
+
+        step_data = {
+            "question_id": question.id,
+            "selected_options": [option.id]
+        }
+
+        response = self.client.post(url, step_data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["is_correct"])
+        self.assertIsNone(response.data["next_question"])
+
+        self.assertTrue(
+            UserAnswer.objects.filter(
+                attempt=attempt,
+                question=question
+            ).exists()
+        )
+
+    def test_finish_attempt_success(self):
+        self.authenticate_user(self.author)
+        user_answer = UserAnswer.objects.create(
+            attempt=self.attempt,
+            question=self.question
+        )
+        user_answer.selected_options.set([self.option_correct.id])
+
+        url = reverse("quiz:quiz-attempt-finish", kwargs={"pk": self.attempt.pk})
+        response = self.client.post(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.attempt.refresh_from_db()
+        self.assertIsNotNone(self.attempt.completed_at)
+        self.assertGreater(self.attempt.score, 0)
